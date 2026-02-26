@@ -8,6 +8,7 @@
 #include <vector>
 #include <memory>
 #include <unordered_set>
+#include <stdexcept>
 
 namespace np {
 
@@ -39,7 +40,7 @@ public:
     
     const T& operator[](Integer index) const {
         if (!data_ || index < 0 || index >= static_cast<Integer>(data_->size())) {
-            throw std::out_of_range("DynArray index out of range");
+            throw _Exception{EXC_ACCESS_VIOLATION, L"Array index out of range"};
         }
         return (*data_)[index];
     }
@@ -47,7 +48,7 @@ public:
     T& operator[](Integer index) {
         EnsureUnique();
         if (!data_ || index < 0 || index >= static_cast<Integer>(data_->size())) {
-            throw std::out_of_range("DynArray index out of range");
+            throw _Exception{EXC_ACCESS_VIOLATION, L"Array index out of range"};
         }
         return (*data_)[index];
     }
@@ -79,7 +80,7 @@ public:
 template<typename T>
 void SetLength(DynArray<T>& arr, Integer newLength) {
     if (newLength < 0) {
-        throw std::invalid_argument("SetLength: negative length");
+        throw _Exception{EXC_SOFTWARE, L"SetLength: negative length"};
     }
     
     arr.EnsureUnique();

@@ -47,6 +47,8 @@ begin
         Result := 'np::Char'
       else if ATypeKind = 'type.void' then
         Result := 'void'
+      else if ATypeKind = 'type.textfile' then
+        Result := 'np::TextFile'
       else
         Result := 'np::Double';
     end);
@@ -1124,6 +1126,137 @@ begin
     end);
 end;
 
+// --- Try..Except..Finally ---
+// Emit strategy:
+//   try..except          -> try { body } catch (...) { np::CatchException(); handler }
+//   try..finally         -> try { body } catch (...) { finally_body; throw; } finally_body
+//   try..except..finally -> try { body } catch (...) { np::CatchException(); handler }
+//                           finally_body
+
+procedure RegisterTryStmt(const AParse: TParse);
+begin
+  // Sub-block emitters -- simply emit their children
+  AParse.Config().RegisterEmitter('stmt.try_body',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    begin
+      AGen.EmitChildren(ANode);
+    end);
+
+  AParse.Config().RegisterEmitter('stmt.except_body',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    begin
+      AGen.EmitChildren(ANode);
+    end);
+
+  AParse.Config().RegisterEmitter('stmt.finally_body',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    begin
+      AGen.EmitChildren(ANode);
+    end);
+
+  AParse.Config().RegisterEmitter('stmt.try_stmt',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LTryBody:     TParseASTNodeBase;
+      LExceptBody:  TParseASTNodeBase;
+      LFinallyBody: TParseASTNodeBase;
+      LI:           Integer;
+      LHasExcept:   Boolean;
+      LHasFinally:  Boolean;
+    begin
+      // Locate sub-block children by kind
+      LTryBody     := nil;
+      LExceptBody  := nil;
+      LFinallyBody := nil;
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        if ANode.GetChild(LI).GetNodeKind() = 'stmt.try_body' then
+          LTryBody := ANode.GetChild(LI)
+        else if ANode.GetChild(LI).GetNodeKind() = 'stmt.except_body' then
+          LExceptBody := ANode.GetChild(LI)
+        else if ANode.GetChild(LI).GetNodeKind() = 'stmt.finally_body' then
+          LFinallyBody := ANode.GetChild(LI);
+      end;
+      LHasExcept  := LExceptBody  <> nil;
+      LHasFinally := LFinallyBody <> nil;
+      // Emit the appropriate lambda-based wrapper. The runtime functions
+      // (TryCatch, TryFinally, TryCatchFinally) install hardware exception
+      // handlers and use setjmp/longjmp to catch hardware faults in addition
+      // to C++ software exceptions.
+      if LHasExcept and LHasFinally then
+      begin
+        // np::TryCatchFinally(tryFn, catchFn, finallyFn)
+        AGen.Stmt('np::TryCatchFinally([&]() {');
+        AGen.IndentIn();
+        if LTryBody <> nil then AGen.EmitNode(LTryBody);
+        AGen.IndentOut();
+        AGen.Stmt('}, [&]() {');
+        AGen.IndentIn();
+        AGen.EmitNode(LExceptBody);
+        AGen.IndentOut();
+        AGen.Stmt('}, [&]() {');
+        AGen.IndentIn();
+        AGen.EmitNode(LFinallyBody);
+        AGen.IndentOut();
+        AGen.Stmt('});');
+      end
+      else if LHasExcept then
+      begin
+        // np::TryCatch(tryFn, catchFn)
+        AGen.Stmt('np::TryCatch([&]() {');
+        AGen.IndentIn();
+        if LTryBody <> nil then AGen.EmitNode(LTryBody);
+        AGen.IndentOut();
+        AGen.Stmt('}, [&]() {');
+        AGen.IndentIn();
+        AGen.EmitNode(LExceptBody);
+        AGen.IndentOut();
+        AGen.Stmt('});');
+      end
+      else if LHasFinally then
+      begin
+        // np::TryFinally(tryFn, finallyFn) -- exception re-propagates after finally
+        AGen.Stmt('np::TryFinally([&]() {');
+        AGen.IndentIn();
+        if LTryBody <> nil then AGen.EmitNode(LTryBody);
+        AGen.IndentOut();
+        AGen.Stmt('}, [&]() {');
+        AGen.IndentIn();
+        AGen.EmitNode(LFinallyBody);
+        AGen.IndentOut();
+        AGen.Stmt('});');
+      end;
+    end);
+end;
+
+// --- RaiseException / RaiseExceptionCode ---
+
+procedure RegisterRaiseStmt(const AParse: TParse);
+begin
+  // raiseexception(msg) -- np::RaiseException throws internally
+  AParse.Config().RegisterEmitter('stmt.raise',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LArgs: TArray<string>;
+    begin
+      SetLength(LArgs, 1);
+      LArgs[0] := AParse.Config().ExprToString(ANode.GetChild(0));
+      AGen.Call('np::RaiseException', LArgs);
+    end);
+
+  // raiseexceptioncode(code, msg) -- both args forwarded to the two-arg overload
+  AParse.Config().RegisterEmitter('stmt.raise_code',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LArgs: TArray<string>;
+    begin
+      SetLength(LArgs, 2);
+      LArgs[0] := AParse.Config().ExprToString(ANode.GetChild(0));  // code
+      LArgs[1] := AParse.Config().ExprToString(ANode.GetChild(1));  // message
+      AGen.Call('np::RaiseException', LArgs);
+    end);
+end;
+
 // --- Include / Exclude ---
 
 procedure RegisterIncludeExclude(const AParse: TParse);
@@ -1197,6 +1330,8 @@ begin
   RegisterCallEmitter(AParse);
   RegisterSetLength(AParse);
   RegisterIncludeExclude(AParse);
+  RegisterTryStmt(AParse);
+  RegisterRaiseStmt(AParse);
 end;
 
 end.

@@ -8,7 +8,6 @@
 #include <memory>
 #include <cstring>
 #include <cstdlib>
-#include <stdexcept>
 
 namespace np {
 
@@ -48,7 +47,7 @@ void Move(const void* source, void* dest, Integer count);
 template<typename T, std::size_t N>
 void FillChar(std::array<T, N>& dest, Integer count, Byte value) {
     if (count < 0) {
-        throw std::invalid_argument("FillChar: negative count");
+        throw _Exception{EXC_SOFTWARE, L"FillChar: negative count"};
     }
     std::size_t byteCount = (static_cast<std::size_t>(count) < sizeof(dest)) ? 
                              static_cast<std::size_t>(count) : sizeof(dest);
@@ -58,7 +57,7 @@ void FillChar(std::array<T, N>& dest, Integer count, Byte value) {
 template<typename T, std::size_t N>
 void FillByte(std::array<T, N>& dest, Integer count, Byte value) {
     if (count < 0) {
-        throw std::invalid_argument("FillByte: negative count");
+        throw _Exception{EXC_SOFTWARE, L"FillByte: negative count"};
     }
     std::size_t byteCount = (static_cast<std::size_t>(count) < sizeof(dest)) ? 
                              static_cast<std::size_t>(count) : sizeof(dest);
@@ -68,7 +67,7 @@ void FillByte(std::array<T, N>& dest, Integer count, Byte value) {
 template<typename T, std::size_t N>
 void FillWord(std::array<T, N>& dest, Integer count, Word value) {
     if (count < 0) {
-        throw std::invalid_argument("FillWord: negative count");
+        throw _Exception{EXC_SOFTWARE, L"FillWord: negative count"};
     }
     std::size_t wordCount = (static_cast<std::size_t>(count) < (sizeof(dest) / sizeof(Word))) ? 
                              static_cast<std::size_t>(count) : (sizeof(dest) / sizeof(Word));
@@ -81,7 +80,7 @@ void FillWord(std::array<T, N>& dest, Integer count, Word value) {
 template<typename T, std::size_t N>
 void FillDWord(std::array<T, N>& dest, Integer count, Cardinal value) {
     if (count < 0) {
-        throw std::invalid_argument("FillDWord: negative count");
+        throw _Exception{EXC_SOFTWARE, L"FillDWord: negative count"};
     }
     std::size_t dwordCount = (static_cast<std::size_t>(count) < (sizeof(dest) / sizeof(Cardinal))) ? 
                               static_cast<std::size_t>(count) : (sizeof(dest) / sizeof(Cardinal));
@@ -94,7 +93,7 @@ void FillDWord(std::array<T, N>& dest, Integer count, Cardinal value) {
 template<typename T1, std::size_t N1, typename T2, std::size_t N2>
 void Move(const std::array<T1, N1>& source, std::array<T2, N2>& dest, Integer count) {
     if (count < 0) {
-        throw std::invalid_argument("Move: negative count");
+        throw _Exception{EXC_SOFTWARE, L"Move: negative count"};
     }
     std::size_t s1 = sizeof(source);
     std::size_t s2 = sizeof(dest);

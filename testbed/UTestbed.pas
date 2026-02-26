@@ -112,6 +112,7 @@ begin
     09: LTestName := 'test_program_char_hex';
     10: LTestName := 'test_program_pointers';
     11: LTestName := 'test_program_intrinsics';
+    12: LTestName := 'test_program_exceptions';
   else
     LTestName := '';
   end;
@@ -135,7 +136,7 @@ begin
     LLevel := olDebug;
     //LLevel := olReleaseSmall;
 
-    LTestNum := 0;
+    LTestNum := 11;
 
     TestFile(LTestNum, LPlatform, LLevel);
 

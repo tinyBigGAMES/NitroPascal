@@ -147,7 +147,43 @@ begin
     .AddKeyword('move',        'keyword.move')
     // System intrinsics
     .AddKeyword('sizeof',      'keyword.sizeof')
-    .AddKeyword('halt',        'keyword.halt');
+    .AddKeyword('halt',        'keyword.halt')
+    // Exception handling
+    .AddKeyword('try',                'keyword.try')
+    .AddKeyword('except',             'keyword.except')
+    .AddKeyword('finally',            'keyword.finally')
+    .AddKeyword('raiseexception',     'keyword.raiseexception')
+    .AddKeyword('raiseexceptioncode', 'keyword.raiseexceptioncode')
+    .AddKeyword('getexceptioncode',   'keyword.getexceptioncode')
+    .AddKeyword('getexceptionmessage','keyword.getexceptionmessage')
+    // Additional string/conversion intrinsics
+    .AddKeyword('stringreplace',  'keyword.stringreplace')
+    .AddKeyword('format',         'keyword.format')
+    .AddKeyword('comparestr',     'keyword.comparestr')
+    .AddKeyword('sametext',       'keyword.sametext')
+    .AddKeyword('quotedstr',      'keyword.quotedstr')
+    .AddKeyword('low',            'keyword.low')
+    .AddKeyword('high',           'keyword.high')
+    .AddKeyword('reallocmem',     'keyword.reallocmem')
+    .AddKeyword('abort',          'keyword.abort')
+    .AddKeyword('paramcount',     'keyword.paramcount')
+    .AddKeyword('paramstr',       'keyword.paramstr')
+    // File I/O
+    .AddKeyword('assign',          'keyword.assign')
+    .AddKeyword('reset',           'keyword.reset')
+    .AddKeyword('rewrite',         'keyword.rewrite')
+    .AddKeyword('append',          'keyword.append')
+    .AddKeyword('close',           'keyword.close')
+    .AddKeyword('eof',             'keyword.eof')
+    .AddKeyword('filesize',        'keyword.filesize')
+    .AddKeyword('filepos',         'keyword.filepos')
+    .AddKeyword('seek',            'keyword.seek')
+    .AddKeyword('fileexists',      'keyword.fileexists')
+    .AddKeyword('directoryexists', 'keyword.directoryexists')
+    .AddKeyword('deletefile',      'keyword.deletefile')
+    .AddKeyword('renamefile',      'keyword.renamefile')
+    .AddKeyword('getcurrentdir',   'keyword.getcurrentdir')
+    .AddKeyword('createdir',       'keyword.createdir');
 end;
 
 // --- Operators & Delimiters ---
@@ -232,6 +268,8 @@ begin
     .AddTypeKeyword('real',     'type.double')
     // Char type
     .AddTypeKeyword('char',     'type.char')
+    // File type
+    .AddTypeKeyword('textfile', 'type.textfile')
     .AddLiteralType('expr.integer', 'type.integer')
     .AddLiteralType('expr.real',    'type.double')
     .AddLiteralType('expr.string',  'type.string')

@@ -14,16 +14,14 @@ namespace np {
 // ============================================================================
 
 inline Integer Div(Integer a, Integer b) {
-    if (b == 0) {
-        throw std::runtime_error("Division by zero");
-    }
+    // No explicit zero check -- let the hardware fault fire so the VEH /
+    // signal handler can catch it as EXC_DIV_BY_ZERO inside a try block.
+    // Outside a try block the process will fault (correct Delphi behaviour).
     return a / b;
 }
 
 inline Integer Mod(Integer a, Integer b) {
-    if (b == 0) {
-        throw std::runtime_error("Division by zero");
-    }
+    // Same as Div -- hardware fault for divide-by-zero.
     return a % b;
 }
 

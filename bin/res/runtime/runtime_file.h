@@ -62,6 +62,11 @@ inline void AssignFile(Text& AFile, const String& AFileName) {
     AFile.filename = AFileName.ToWString();
 }
 
+// Alias: Pascal 'Assign' maps to AssignFile
+inline void Assign(Text& AFile, const String& AFileName) {
+    AssignFile(AFile, AFileName);
+}
+
 inline void Reset(Text& AFile) {
     if (AFile.stream) {
         delete AFile.stream;
@@ -94,6 +99,11 @@ inline void CloseFile(Text& AFile) {
         AFile.stream->close();
         AFile.is_open = false;
     }
+}
+
+// Alias: Pascal 'Close' maps to CloseFile
+inline void Close(Text& AFile) {
+    CloseFile(AFile);
 }
 
 inline void WriteLn(Text& AFile, const String& AText) {
@@ -224,6 +234,10 @@ inline void AssignFile(BinaryFile& AFile, const String& AFileName) {
     AFile.filename = std::string(AFileName.Data().begin(), AFileName.Data().end());
 }
 
+inline void Assign(BinaryFile& AFile, const String& AFileName) {
+    AssignFile(AFile, AFileName);
+}
+
 inline void Reset(BinaryFile& AFile) {
     if (AFile.stream) {
         delete AFile.stream;
@@ -255,6 +269,10 @@ inline void CloseFile(BinaryFile& AFile) {
         AFile.stream->close();
         AFile.is_open = false;
     }
+}
+
+inline void Close(BinaryFile& AFile) {
+    CloseFile(AFile);
 }
 
 template<typename T>

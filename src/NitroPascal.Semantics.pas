@@ -613,6 +613,53 @@ begin
     end);
 end;
 
+// --- Exception Handling ---
+
+procedure RegisterExceptionRules(const AParse: TParse);
+begin
+  // try_stmt -- visit all sub-blocks
+  AParse.Config().RegisterSemanticRule('stmt.try_stmt',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+
+  // try_body -- visit body statements
+  AParse.Config().RegisterSemanticRule('stmt.try_body',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+
+  // except_body -- visit handler statements
+  AParse.Config().RegisterSemanticRule('stmt.except_body',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+
+  // finally_body -- visit cleanup statements
+  AParse.Config().RegisterSemanticRule('stmt.finally_body',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+
+  // raise -- visit message expression
+  AParse.Config().RegisterSemanticRule('stmt.raise',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+
+  // raise_code -- visit code and message expressions
+  AParse.Config().RegisterSemanticRule('stmt.raise_code',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    begin
+      ASem.VisitChildren(ANode);
+    end);
+end;
+
 // === Public Entry Point ===
 
 procedure ConfigSemantics(const AParse: TParse);
@@ -638,6 +685,9 @@ begin
   RegisterExprRules(AParse);
   RegisterIdentRule(AParse);
   RegisterLiteralTypes(AParse);
+
+  // Exception handling
+  RegisterExceptionRules(AParse);
 end;
 
 end.

@@ -24,7 +24,9 @@ void RunError(Integer errorCode) {
 }
 
 void Abort() {
-    std::abort();
+    // Raise a silent exception (empty message) -- caught by Pascal except blocks.
+    // This matches Delphi semantics where Abort is a soft, catchable termination.
+    throw _Exception{EXC_SOFTWARE, L""};
 }
 
 } // namespace np

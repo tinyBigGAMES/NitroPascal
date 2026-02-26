@@ -139,6 +139,6 @@ void Halt(Integer exitCode = 0);
 /**
  * Abort - Abort program execution
  */
-[[noreturn]] void Abort();
+void Abort();
 
 } // namespace np

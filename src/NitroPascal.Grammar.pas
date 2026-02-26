@@ -1403,6 +1403,145 @@ begin
   // System
   RegisterOneIntrinsic(AParse, 'keyword.sizeof',       'sizeof');
   RegisterOneIntrinsic(AParse, 'keyword.halt',         'std::exit');
+  // Additional string/conversion intrinsics
+  RegisterOneIntrinsic(AParse, 'keyword.stringreplace', 'np::StringReplace');
+  RegisterOneIntrinsic(AParse, 'keyword.format',        'np::Format');
+  RegisterOneIntrinsic(AParse, 'keyword.comparestr',    'np::CompareStr');
+  RegisterOneIntrinsic(AParse, 'keyword.sametext',      'np::SameText');
+  RegisterOneIntrinsic(AParse, 'keyword.quotedstr',     'np::QuotedStr');
+  RegisterOneIntrinsic(AParse, 'keyword.low',           'np::Low');
+  RegisterOneIntrinsic(AParse, 'keyword.high',          'np::High');
+  RegisterOneIntrinsic(AParse, 'keyword.reallocmem',    'np::ReallocMem');
+  RegisterOneIntrinsic(AParse, 'keyword.abort',         'np::Abort');
+  RegisterOneIntrinsic(AParse, 'keyword.paramcount',    'np::ParamCount');
+  RegisterOneIntrinsic(AParse, 'keyword.paramstr',      'np::ParamStr');
+  // Exception intrinsics (expression form)
+  RegisterOneIntrinsic(AParse, 'keyword.getexceptioncode',    'np::GetExceptionCode');
+  RegisterOneIntrinsic(AParse, 'keyword.getexceptionmessage', 'np::GetExceptionMessage');
+  // File I/O
+  RegisterOneIntrinsic(AParse, 'keyword.assign',          'np::Assign');
+  RegisterOneIntrinsic(AParse, 'keyword.reset',           'np::Reset');
+  RegisterOneIntrinsic(AParse, 'keyword.rewrite',         'np::Rewrite');
+  RegisterOneIntrinsic(AParse, 'keyword.append',          'np::Append');
+  RegisterOneIntrinsic(AParse, 'keyword.close',           'np::Close');
+  RegisterOneIntrinsic(AParse, 'keyword.eof',             'np::Eof');
+  RegisterOneIntrinsic(AParse, 'keyword.filesize',        'np::FileSize');
+  RegisterOneIntrinsic(AParse, 'keyword.filepos',         'np::FilePos');
+  RegisterOneIntrinsic(AParse, 'keyword.seek',            'np::Seek');
+  RegisterOneIntrinsic(AParse, 'keyword.fileexists',      'np::FileExists');
+  RegisterOneIntrinsic(AParse, 'keyword.directoryexists', 'np::DirectoryExists');
+  RegisterOneIntrinsic(AParse, 'keyword.deletefile',      'np::DeleteFile');
+  RegisterOneIntrinsic(AParse, 'keyword.renamefile',      'np::RenameFile');
+  RegisterOneIntrinsic(AParse, 'keyword.getcurrentdir',   'np::GetCurrentDir');
+  RegisterOneIntrinsic(AParse, 'keyword.createdir',       'np::CreateDir');
+end;
+
+// --- Try..Except..Finally ---
+// BNF: TryStmt = "try" StatementSeq
+//               ( "except" StatementSeq [ "finally" StatementSeq ]
+//               | "finally" StatementSeq ) "end" [";"] .
+// AST: stmt.try_stmt
+//        stmt.try_body    -- always present
+//        stmt.except_body -- present when except clause exists
+//        stmt.finally_body -- present when finally clause exists
+
+procedure RegisterTryStmt(const AParse: TParse);
+begin
+  AParse.Config().RegisterStatement('keyword.try', 'stmt.try_stmt',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:        TParseASTNode;
+      LTryBody:     TParseASTNode;
+      LExceptBody:  TParseASTNode;
+      LFinallyBody: TParseASTNode;
+      LChild:       TParseASTNodeBase;
+    begin
+      LNode := AParser.CreateNode();
+      AParser.Consume();  // consume 'try'
+      // --- try body: parse statements until except/finally/end ---
+      LTryBody := AParser.CreateNode('stmt.try_body', AParser.CurrentToken());
+      while not AParser.Check('keyword.except') and
+            not AParser.Check('keyword.finally') and
+            not AParser.Check('keyword.end') and
+            not AParser.Check(PARSE_KIND_EOF) do
+      begin
+        LChild := AParser.ParseStatement();
+        if LChild <> nil then
+          LTryBody.AddChild(TParseASTNode(LChild));
+      end;
+      LNode.AddChild(LTryBody);
+      // --- except block (optional) ---
+      if AParser.Match('keyword.except') then
+      begin
+        LExceptBody := AParser.CreateNode('stmt.except_body',
+          AParser.CurrentToken());
+        while not AParser.Check('keyword.finally') and
+              not AParser.Check('keyword.end') and
+              not AParser.Check(PARSE_KIND_EOF) do
+        begin
+          LChild := AParser.ParseStatement();
+          if LChild <> nil then
+            LExceptBody.AddChild(TParseASTNode(LChild));
+        end;
+        LNode.AddChild(LExceptBody);
+      end;
+      // --- finally block (optional) ---
+      if AParser.Match('keyword.finally') then
+      begin
+        LFinallyBody := AParser.CreateNode('stmt.finally_body',
+          AParser.CurrentToken());
+        while not AParser.Check('keyword.end') and
+              not AParser.Check(PARSE_KIND_EOF) do
+        begin
+          LChild := AParser.ParseStatement();
+          if LChild <> nil then
+            LFinallyBody.AddChild(TParseASTNode(LChild));
+        end;
+        LNode.AddChild(LFinallyBody);
+      end;
+      AParser.Expect('keyword.end');
+      AParser.Match('delimiter.semicolon');
+      Result := LNode;
+    end);
+end;
+
+// --- RaiseException / RaiseExceptionCode ---
+// BNF: RaiseStmt = ( "raiseexception" "(" Expression ")"
+//                  | "raiseexceptioncode" "(" Expression "," Expression ")" ) [";"] .
+
+procedure RegisterRaiseStmt(const AParse: TParse);
+begin
+  // raiseexception(message)
+  AParse.Config().RegisterStatement('keyword.raiseexception', 'stmt.raise',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode: TParseASTNode;
+    begin
+      LNode := AParser.CreateNode();
+      AParser.Consume();  // consume 'raiseexception'
+      AParser.Expect('delimiter.lparen');
+      LNode.AddChild(TParseASTNode(AParser.ParseExpression(0)));  // message
+      AParser.Expect('delimiter.rparen');
+      AParser.Match('delimiter.semicolon');
+      Result := LNode;
+    end);
+
+  // raiseexceptioncode(code, message)
+  AParse.Config().RegisterStatement('keyword.raiseexceptioncode', 'stmt.raise_code',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode: TParseASTNode;
+    begin
+      LNode := AParser.CreateNode();
+      AParser.Consume();  // consume 'raiseexceptioncode'
+      AParser.Expect('delimiter.lparen');
+      LNode.AddChild(TParseASTNode(AParser.ParseExpression(0)));  // code
+      AParser.Expect('delimiter.comma');
+      LNode.AddChild(TParseASTNode(AParser.ParseExpression(0)));  // message
+      AParser.Expect('delimiter.rparen');
+      AParser.Match('delimiter.semicolon');
+      Result := LNode;
+    end);
 end;
 
 // === Public Entry Point ===
@@ -1456,6 +1595,8 @@ begin
   RegisterIncludeStmt(AParse);
   RegisterExcludeStmt(AParse);
   RegisterIntrinsicCalls(AParse);
+  RegisterTryStmt(AParse);
+  RegisterRaiseStmt(AParse);
 end;
 
 end.
