@@ -56,7 +56,7 @@ NitroPascal is actively developed. The foundation is solid and the core language
 
 NitroPascal serves two audiences.
 
-**If you write Pascal**, NitroPascal gives you a path from `.pas` source to a native binary without a legacy toolchain. Write standard Object Pascal, get a fast, small native executable. No Delphi license required to run compiled programs. No FPC install. Just the NitroPascal compiler and the bundled Zig backend.
+**If you write Pascal**, NitroPascal gives you a path from `.pas` source to a native binary without a legacy toolchain. Write standard Object Pascal, get a fast, small native executable. Just the NitroPascal compiler and the bundled Zig backend.
 
 **If you build languages**, NitroPascal is the definitive answer to *"can Parse() handle a real language?"* Browse `src/NitroPascal.Lexer.pas`, `src/NitroPascal.Grammar.pas`, `src/NitroPascal.Semantics.pas`, and `src/NitroPascal.CodeGen.pas`. Every feature maps directly to Parse() API calls. There is no magic, no custom parser, no hand-rolled AST infrastructure. If NitroPascal can implement full Pascal on Parse(), your language can too.
 
