@@ -35,13 +35,12 @@ NitroPascal is actively developed. The foundation is solid and the core language
 - **Procedures and functions** - full declarations, parameters (`const`, `var`, `out`), `Result` return convention
 - **Control flow** - `if/then/else`, `while/do`, `for/to/downto`, `repeat/until`, `case/of`, `break`, `continue`, `exit`
 - **Arrays** - fixed arrays with arbitrary index bounds, dynamic arrays, `SetLength`
-- **Sets** - Pascal set types, `include`, `exclude`, `in` operator, set arithmetic
-- **Pointers** - pointer type declarations, `^T`, `@expr`, dereference, pointer type aliases
-- **Records** - field declarations and field access
-- **Operators** - arithmetic, comparison, logical (`and`, `or`, `not`), bitwise (`shl`, `shr`)
+- **Sets** - Pascal set types, `Include`, `Exclude`, `in` operator
+- **Pointers** - typed pointer declarations, `^T`, `@expr`, dereference, pointer type aliases
+- **Records** - field declarations, nested records, pass by value/ref/out, functions returning records
 - **Literals** - integer, real, string, char (`#65`), hex (`$FF`), boolean, `nil`
-- **Intrinsics** - full RTL: `Inc`, `Dec`, `Ord`, `Chr`, `Succ`, `Pred`, `Odd`, `Assigned`, `Length`, `Copy`, `Pos`, `UpperCase`, `LowerCase`, `Trim`, `IntToStr`, `StrToInt`, `StrToIntDef`, `FloatToStr`, `StrToFloat`, `StringOfChar`, `Abs`, `Sqr`, `Sqrt`, `Sin`, `Cos`, `Tan`, `ArcTan`, `Ln`, `Exp`, `Power`, `Round`, `Trunc`, `Ceil`, `Floor`, `Max`, `Min`, `Random`, `Randomize`, `New`, `Dispose`, `GetMem`, `FreeMem`, `FillChar`, `Move`, `SizeOf`, `Halt`
-- **I/O** - `WriteLn`, `Write`, `ReadLn`, `Read`
+- **Intrinsics** - `Inc`, `Dec`, `Ord`, `Chr`, `Succ`, `Pred`, `Odd`, `Assigned`, `Length`, `Copy`, `Pos`, `UpperCase`, `LowerCase`, `Trim`, `IntToStr`, `StrToInt`, `StrToIntDef`, `StringOfChar`, `Abs`, `Sqr`, `Sqrt`, `Max`, `Min`, `Round`, `Trunc`, `New`, `Dispose`
+- **I/O** - `WriteLn`, `Write`
 
 ### 🔜 Planned / In Progress
 
