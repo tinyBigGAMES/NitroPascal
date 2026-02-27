@@ -1,3 +1,14 @@
+(* EXPECT:
+99
+7
+10
+20
+30
+40
+50
+30
+*)
+
 program test_program_pointers;
 
 // Tests: pointer var decls, pointer type aliases, array 1-based indexing

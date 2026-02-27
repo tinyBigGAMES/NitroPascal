@@ -1,3 +1,14 @@
+(* EXPECT:
+A
+a
+0
+255
+16
+26
+16
+equal
+*)
+
 program test_program_char_hex;
 
 // Test #ordinal char literals and $hex integer literals.

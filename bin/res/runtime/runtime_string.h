@@ -85,6 +85,10 @@ String LowerCase(const String& s);
 String Trim(const String& s);
 void Delete(String& s, Integer index, Integer count);
 void Insert(const String& substr, String& s, Integer index);
+inline void Insert(Char substr, String& s, Integer index) {
+    char16_t buf[2] = {substr, 0};
+    Insert(String(buf), s, index);
+}
 String TrimLeft(const String& s);
 String TrimRight(const String& s);
 void SetLength(String& s, Integer newLength);

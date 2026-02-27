@@ -1,3 +1,18 @@
+(* EXPECT:
+--- Hello from NitroPascal! ---
+10 + 32 = 42
+Total is greater than 40
+Counting to 5:
+  Step 1
+  Step 2
+  Step 3
+  Step 4
+  Step 5
+While pass: 1
+While pass: 2
+While pass: 3
+*)
+
 program Testbed;
 
 var

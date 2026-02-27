@@ -1,3 +1,27 @@
+(* EXPECT:
+10
+20
+5
+600
+10
+20
+13
+27
+255
+128
+64
+42
+99
+7
+3
+7
+100
+200
+640
+480
+999
+*)
+
 program test_program_type_record;
 
 // Record type declarations - global scope

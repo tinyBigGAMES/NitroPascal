@@ -40,6 +40,21 @@ void FillWord(void* dest, Integer count, Word value);
 void FillDWord(void* dest, Integer count, Cardinal value);
 void Move(const void* source, void* dest, Integer count);
 
+// Template overloads so typed pointers bind to GetMem / ReallocMem
+template<typename T>
+inline void GetMem(T*& ptr, Integer size) {
+    void* vptr = nullptr;
+    GetMem(vptr, size);
+    ptr = static_cast<T*>(vptr);
+}
+
+template<typename T>
+inline void ReallocMem(T*& ptr, Integer newSize) {
+    void* vptr = static_cast<void*>(ptr);
+    ReallocMem(vptr, newSize);
+    ptr = static_cast<T*>(vptr);
+}
+
 // ============================================================================
 // STATIC ARRAY MEMORY OPERATIONS
 // ============================================================================

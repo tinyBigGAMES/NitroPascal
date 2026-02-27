@@ -1,3 +1,11 @@
+(* EXPECT:
+two
+mid
+B
+Good job!
+three - no else
+*)
+
 program test_program_case_of;
 
 var

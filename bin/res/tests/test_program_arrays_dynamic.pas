@@ -1,3 +1,11 @@
+(* EXPECT:
+100
+200
+300
+400
+500
+*)
+
 program test_program_arrays_dynamic;
 
 // Test dynamic array declaration, SetLength, and indexed access.

@@ -16,16 +16,19 @@ namespace np {
 // TYPE ALIASES - Delphi types mapped to fixed-size C++ types
 // ============================================================================
 
-using Integer = int32_t;
+using Integer  = int32_t;
 using Cardinal = uint32_t;
-using Int64 = int64_t;
-using Byte = uint8_t;
-using Word = uint16_t;
-using Boolean = bool;
-using Char = char16_t;
-using Double = double;
-using Single = float;
-using Pointer = void*;
+using Int64    = int64_t;
+using Byte     = uint8_t;
+using Word     = uint16_t;
+using ShortInt = int8_t;
+using SmallInt = int16_t;
+using LongInt  = int32_t;   // same as Integer
+using Boolean  = bool;
+using Char     = char16_t;
+using Double   = double;
+using Single   = float;
+using Pointer  = void*;
 
 // ============================================================================
 // POINTER TYPE ALIASES - Delphi pointer types (^Type becomes PType)

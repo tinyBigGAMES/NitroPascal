@@ -22,7 +22,8 @@ uses
   NitroPascal.Grammar in '..\src\NitroPascal.Grammar.pas',
   NitroPascal.Lexer in '..\src\NitroPascal.Lexer.pas',
   NitroPascal in '..\src\NitroPascal.pas',
-  NitroPascal.Semantics in '..\src\NitroPascal.Semantics.pas';
+  NitroPascal.Semantics in '..\src\NitroPascal.Semantics.pas',
+  NitroPascal.Tester in '..\src\NitroPascal.Tester.pas';
 
 begin
   RunTestbed();

@@ -1,3 +1,11 @@
+(* EXPECT:
+1
+2
+3
+4
+5
+*)
+
 program test_program_repeat_until;
 var
   i: integer;

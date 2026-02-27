@@ -1,3 +1,16 @@
+(* EXPECT:
+true
+false
+true
+false
+true
+true
+false
+true
+true
+true
+*)
+
 program test_program_set;
 
 // Test set of T: declaration, type alias, set literal assignment,

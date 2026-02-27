@@ -256,20 +256,21 @@ begin
     .AddTypeKeyword('boolean',  'type.boolean')
     .AddTypeKeyword('double',   'type.double')
     // Integer-family aliases
-    .AddTypeKeyword('byte',     'type.integer')
-    .AddTypeKeyword('word',     'type.integer')
-    .AddTypeKeyword('longint',  'type.integer')
-    .AddTypeKeyword('int64',    'type.integer')
-    .AddTypeKeyword('cardinal', 'type.integer')
-    .AddTypeKeyword('shortint', 'type.integer')
-    .AddTypeKeyword('smallint', 'type.integer')
+    .AddTypeKeyword('byte',     'type.byte')
+    .AddTypeKeyword('word',     'type.word')
+    .AddTypeKeyword('longint',  'type.integer')   // LongInt = Int32 = Integer
+    .AddTypeKeyword('int64',    'type.int64')
+    .AddTypeKeyword('cardinal', 'type.cardinal')
+    .AddTypeKeyword('shortint', 'type.shortint')
+    .AddTypeKeyword('smallint', 'type.smallint')
     // Float-family aliases
-    .AddTypeKeyword('single',   'type.double')
-    .AddTypeKeyword('real',     'type.double')
+    .AddTypeKeyword('single',   'type.single')
+    .AddTypeKeyword('real',     'type.double')    // Real = Double in Delphi
     // Char type
     .AddTypeKeyword('char',     'type.char')
-    // File type
-    .AddTypeKeyword('textfile', 'type.textfile')
+    // File types
+    .AddTypeKeyword('textfile',   'type.textfile')
+    .AddTypeKeyword('binaryfile', 'type.binaryfile')
     .AddLiteralType('expr.integer', 'type.integer')
     .AddLiteralType('expr.real',    'type.double')
     .AddLiteralType('expr.string',  'type.string')

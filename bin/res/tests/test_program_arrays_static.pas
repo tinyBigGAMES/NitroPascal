@@ -1,3 +1,11 @@
+(* EXPECT:
+10
+20
+30
+40
+50
+*)
+
 program test_program_arrays_static;
 
 // Test static array declaration and indexed access.

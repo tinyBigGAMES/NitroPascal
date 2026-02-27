@@ -1,3 +1,16 @@
+(* EXPECT:
+3
+1
+2
+3
+4
+6
+7
+8
+9
+10
+*)
+
 program test_program_exit_break_continue;
 var
   i: integer;

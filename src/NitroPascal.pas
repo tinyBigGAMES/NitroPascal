@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   NitroPascal™ - Modern Pascal * C Performance
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -352,7 +352,8 @@ begin
   // Apply post-build resources (manifest, icon, version info) on successful compile
   if Result then
   begin
-    LExePath := FParse.GetOutputFilename();
+    //LExePath := FParse.GetOutputFilename();
+    LExePath := TPath.Combine(FParse.GetOutputPath(), 'zig-out/bin/' + FParse.GetOutputFilename());
     if LExePath <> '' then
       ApplyPostBuildResources(LExePath);
   end;

@@ -43,12 +43,28 @@ begin
         Result := 'np::Boolean'
       else if ATypeKind = 'type.double' then
         Result := 'np::Double'
+      else if ATypeKind = 'type.single' then
+        Result := 'np::Single'
       else if ATypeKind = 'type.char' then
         Result := 'np::Char'
+      else if ATypeKind = 'type.byte' then
+        Result := 'np::Byte'
+      else if ATypeKind = 'type.word' then
+        Result := 'np::Word'
+      else if ATypeKind = 'type.cardinal' then
+        Result := 'np::Cardinal'
+      else if ATypeKind = 'type.int64' then
+        Result := 'np::Int64'
+      else if ATypeKind = 'type.shortint' then
+        Result := 'np::ShortInt'
+      else if ATypeKind = 'type.smallint' then
+        Result := 'np::SmallInt'
       else if ATypeKind = 'type.void' then
         Result := 'void'
       else if ATypeKind = 'type.textfile' then
         Result := 'np::TextFile'
+      else if ATypeKind = 'type.binaryfile' then
+        Result := 'np::BinaryFile'
       else
         Result := 'np::Double';
     end);
@@ -832,6 +848,20 @@ begin
     end);
 end;
 
+procedure RegisterBoolLiteral(const AParse: TParse);
+begin
+  AParse.Config().RegisterExprOverride('expr.bool',
+    function(const ANode: TParseASTNodeBase;
+      const ADefault: TParseExprToStringFunc): string
+    begin
+      // Pascal True/False (case-insensitive) -> C++ lowercase true/false
+      if SameText(ANode.GetToken().Text, 'true') then
+        Result := 'true'
+      else
+        Result := 'false';
+    end);
+end;
+
 // --- Runtime Operator Overrides ---
 // div, mod, shl, shr emit np:: calls instead of raw C++ operators
 
@@ -1313,6 +1343,7 @@ begin
   // I/O
   RegisterStringLiteral(AParse);
   RegisterNilLiteral(AParse);
+  RegisterBoolLiteral(AParse);
   RegisterRuntimeOperators(AParse);
   RegisterStructureExprOverrides(AParse);
   RegisterWriteln(AParse);

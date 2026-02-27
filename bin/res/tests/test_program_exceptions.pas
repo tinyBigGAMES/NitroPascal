@@ -1,3 +1,41 @@
+(* EXPECT:
+=== Basic try/except ===
+Exception caught: code=1 msg=Test error
+=== Try/finally (no exception) ===
+In try block
+In finally block
+After try
+=== Try/except/finally ===
+In try block
+In except block: code=1
+In finally block
+=== raiseexceptioncode ===
+Custom code: 42 msg=Custom error
+=== Nested try ===
+Inner exception caught
+Outer finally
+=== Hardware exception (div by zero) ===
+Hardware exception caught: code=2 msg=Divide by zero
+=== Local variable capture ===
+Before: localVar=100
+Inside try: localVar=100
+After modify: localVar=200
+After try: localVar=200
+=== Parameter capture ===
+Param in try: value=42
+=== Global variable in try ===
+Global in try: gValue=999
+=== Routine with try modifying local ===
+Result: 30
+=== Multiple sequential try blocks ===
+First try ok
+Second try ok
+localA=10 localB=20
+=== Exception propagation ===
+Caught propagated: code=1
+Done
+*)
+
 program test_program_exceptions;
 
 // Comprehensive exception test covering:

@@ -1,3 +1,45 @@
+(* EXPECT:
+6
+4
+false
+true
+A
+65
+5
+3
+11
+Hello
+7
+HELLO WORLD
+hello world
+hi
+42
+99
+0
+*****
+0
+true
+true
+false
+'hello'
+baz bar baz
+Alice is 30 years old
+7
+16
+3
+7
+3
+4
+3
+123
+true
+false
+0
+4
+Abort caught
+0
+*)
+
 program test_program_intrinsics;
 
 var

@@ -1,3 +1,13 @@
+(* EXPECT:
+NitroPascal
+100
+3.14159
+50
+Max is:100
+100
+150
+*)
+
 program test_program_const_block;
 
 const
