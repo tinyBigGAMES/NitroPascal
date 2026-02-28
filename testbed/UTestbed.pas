@@ -1,7 +1,7 @@
 {===============================================================================
-  NitroPascal™ - Modern Pascal * C Performance
+  NitroPascalï¿½ - Modern Pascal * C Performance
 
-  Copyright © 2025-present tinyBigGAMES™ LLC
+  Copyright ï¿½ 2025-present tinyBigGAMESï¿½ LLC
   All Rights Reserved.
 
   https://nitropascal.org
@@ -75,6 +75,7 @@ begin
   {18} ATester.RegisterTest('test_program_fileio3',             True);
   {19} ATester.RegisterTest('test_program_unit',                True);
   {20} ATester.RegisterTest('test_program_overload',            True);
+  {21} ATester.RegisterTest('test_program_cpp_interop',         True);
 end;
 
 procedure RunTests(const ATestName: string; const APlatform: TParseTargetPlatform = tpWin64; const AOptLevel: TParseOptimizeLevel = olDebug); overload;
@@ -155,7 +156,7 @@ begin
 
     //RunTests(LTest, LPlatform, LOptLevel);
 
-    LTestIndex := 20;
+    LTestIndex := 21;
 
     RunTests(LTestIndex, LPlatform, LOptLevel);
 

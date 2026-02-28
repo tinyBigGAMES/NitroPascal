@@ -1613,6 +1613,41 @@ begin
     end);
 end;
 
+// --- C++ Interop Emitters ---
+// stmt.cpp_block  — emits raw captured text to header or source
+// expr.cpp_inline — emits the raw string verbatim as a C++ expression
+
+procedure RegisterCppInterop(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.cpp_block',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LAttr:   TValue;
+      LText:   string;
+      LTarget: TParseSourceFile;
+    begin
+      ANode.GetAttr('cpp.text',   LAttr);
+      LText := LAttr.AsString;
+      ANode.GetAttr('cpp.target', LAttr);
+      if LAttr.AsString = 'header' then
+        LTarget := sfHeader
+      else
+        LTarget := sfSource;
+      AGen.EmitRaw(LText, LTarget);
+    end);
+
+  AParse.Config().RegisterExprOverride('expr.cpp_inline',
+    function(const ANode: TParseASTNodeBase;
+      const ADefault: TParseExprToStringFunc): string
+    var
+      LAttr: TValue;
+    begin
+      ANode.GetAttr('cpp.text', LAttr);
+      Result := LAttr.AsString;
+    end);
+end;
+
+
 procedure ConfigCodeGen(const AParse: TParse);
 begin
   // Type mapping -- np:: aliases for all Delphi types
@@ -1666,6 +1701,7 @@ begin
   RegisterIncludeExclude(AParse);
   RegisterTryStmt(AParse);
   RegisterRaiseStmt(AParse);
+  RegisterCppInterop(AParse);
 end;
 
 end.

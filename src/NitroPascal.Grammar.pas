@@ -23,6 +23,7 @@ procedure ConfigGrammar(const AParse: TParse);
 implementation
 
 uses
+  System.SysUtils,
   System.Classes,
   System.Rtti;
 
@@ -522,12 +523,14 @@ begin
         AParser.Expect('delimiter.semicolon');
         LNode.AddChild(LUsesNode);
       end;
-      // Any number of var/const/type/procedure/function declarations in any order
+      // Any number of var/const/type/procedure/function/cppblock declarations in any order
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
             AParser.Check('keyword.type') or
             AParser.Check('keyword.procedure') or
-            AParser.Check('keyword.function') do
+            AParser.Check('keyword.function') or
+            AParser.Check('literal.cpp_block_header') or
+            AParser.Check('literal.cpp_block_source') do
         LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       // Main begin..end. block
       LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
@@ -1619,6 +1622,79 @@ begin
 end;
 
 
+// --- C++ Interop ---
+// Handles two constructs:
+//   1. cppstart [header|source] ... cppend  — raw C++ block emitted to header or source
+//   2. cpp('text')                          — inline C++ expression emitted verbatim
+//
+// AST: stmt.cpp_block  attr: cpp.text (string), cpp.target ('header'|'source')
+//      expr.cpp_inline attr: cpp.text (string)
+
+procedure RegisterCppBlocks(const AParse: TParse);
+begin
+  // cppstart header ... cppend
+  AParse.Config().RegisterStatement('literal.cpp_block_header', 'stmt.cpp_block',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:    TParseASTNode;
+      LRawText: string;
+    begin
+      LNode    := AParser.CreateNode();
+      LRawText := AParser.CurrentToken().Text;
+      // Strip the 'cppstart header' open tag and 'cppend' close tag, trim leading/trailing newlines
+      LRawText := LRawText.Substring(Length('cppstart header'), LRawText.Length - Length('cppstart header') - Length('cppend'));
+      LNode.SetAttr('cpp.text',   TValue.From<string>(LRawText));
+      LNode.SetAttr('cpp.target', TValue.From<string>('header'));
+      AParser.Consume();
+      Result := LNode;
+    end);
+
+  // cppstart source ... cppend  (and bare cppstart ... cppend)
+  AParse.Config().RegisterStatement('literal.cpp_block_source', 'stmt.cpp_block',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:    TParseASTNode;
+      LRawText: string;
+      LOpenTag: string;
+    begin
+      LNode    := AParser.CreateNode();
+      LRawText := AParser.CurrentToken().Text;
+      // Determine which open tag was used and strip it along with the cppend close tag
+      if LRawText.StartsWith('cppstart source') then
+        LOpenTag := 'cppstart source'
+      else
+        LOpenTag := 'cppstart';
+      LRawText := LRawText.Substring(Length(LOpenTag), LRawText.Length - Length(LOpenTag) - Length('cppend'));
+      LNode.SetAttr('cpp.text',   TValue.From<string>(LRawText));
+      LNode.SetAttr('cpp.target', TValue.From<string>('source'));
+      AParser.Consume();
+      Result := LNode;
+    end);
+
+  // cpp('inline text') — expression form
+  AParse.Config().RegisterPrefix('keyword.cpp', 'expr.cpp_inline',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:    TParseASTNode;
+      LRawText: string;
+    begin
+      LNode := AParser.CreateNode('expr.cpp_inline', AParser.CurrentToken());
+      AParser.Consume();  // consume 'cpp'
+      AParser.Expect('delimiter.lparen');
+      // The argument must be a string literal; grab its value directly
+      LRawText := AParser.CurrentToken().Text;
+      // Strip surrounding Pascal single quotes
+      if (Length(LRawText) >= 2) and
+         (LRawText[1] = '''') and (LRawText[Length(LRawText)] = '''') then
+        LRawText := Copy(LRawText, 2, Length(LRawText) - 2);
+      LNode.SetAttr('cpp.text', TValue.From<string>(LRawText));
+      AParser.Expect(PARSE_KIND_STRING);
+      AParser.Expect('delimiter.rparen');
+      Result := LNode;
+    end);
+end;
+
+
 // --- Unit Declaration ---
 // BNF: UnitDecl = "unit" Identifier ";"
 //                 [ "uses" UnitList ";" ]
@@ -1679,11 +1755,15 @@ begin
             AParser.Check('keyword.const') or
             AParser.Check('keyword.type') or
             AParser.Check('keyword.procedure') or
-            AParser.Check('keyword.function') do
+            AParser.Check('keyword.function') or
+            AParser.Check('literal.cpp_block_header') or
+            AParser.Check('literal.cpp_block_source') do
       begin
         if AParser.Check('keyword.var') or
            AParser.Check('keyword.const') or
-           AParser.Check('keyword.type') then
+           AParser.Check('keyword.type') or
+           AParser.Check('literal.cpp_block_header') or
+           AParser.Check('literal.cpp_block_source') then
           LIntfNode.AddChild(TParseASTNode(AParser.ParseStatement()))
         else if AParser.Check('keyword.procedure') then
         begin
@@ -1806,7 +1886,9 @@ begin
             AParser.Check('keyword.const') or
             AParser.Check('keyword.type') or
             AParser.Check('keyword.procedure') or
-            AParser.Check('keyword.function') do
+            AParser.Check('keyword.function') or
+            AParser.Check('literal.cpp_block_header') or
+            AParser.Check('literal.cpp_block_source') do
         LImplNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       LNode.AddChild(LImplNode);
       AParser.Expect('keyword.end');
@@ -1862,10 +1944,12 @@ begin
         AParser.Expect('delimiter.semicolon');
         LNode.AddChild(LUsesNode);
       end;
-      // Optional var/const/type blocks
+      // Optional var/const/type/cppblock declarations
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
-            AParser.Check('keyword.type') do
+            AParser.Check('keyword.type') or
+            AParser.Check('literal.cpp_block_header') or
+            AParser.Check('literal.cpp_block_source') do
         LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       // Zero or more procedure/function declarations
       while AParser.Check('keyword.procedure') or
@@ -1949,6 +2033,7 @@ begin
   RegisterIntrinsicCalls(AParse);
   RegisterTryStmt(AParse);
   RegisterRaiseStmt(AParse);
+  RegisterCppBlocks(AParse);
 end;
 
 end.

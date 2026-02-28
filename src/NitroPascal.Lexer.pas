@@ -190,7 +190,8 @@ begin
     .AddKeyword('renamefile',      'keyword.renamefile')
     .AddKeyword('getcurrentdir',   'keyword.getcurrentdir')
     .AddKeyword('createdir',       'keyword.createdir')
-    .AddKeyword('overload',         'keyword.overload');
+    .AddKeyword('overload',         'keyword.overload')
+    .AddKeyword('cpp',              'keyword.cpp');
 end;
 
 // --- Operators & Delimiters ---
@@ -240,7 +241,11 @@ begin
   AParse.Config()
     .AddLineComment('//')
     .AddBlockComment('{', '}')
-    .AddBlockComment('(*', '*)');
+    .AddBlockComment('(*', '*)')
+    // cppstart/cppend blocks — raw C++ text captured verbatim, targeting header or source
+    .AddBlockComment('cppstart header', 'cppend', 'literal.cpp_block_header')
+    .AddBlockComment('cppstart source', 'cppend', 'literal.cpp_block_source')
+    .AddBlockComment('cppstart',        'cppend', 'literal.cpp_block_source');
 end;
 
 // --- Structural Tokens ---
