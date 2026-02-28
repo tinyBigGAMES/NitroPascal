@@ -400,7 +400,7 @@ begin
       end);
 
     // Build (compile + link, no auto-run)
-    LBuildResult := LCompiler.Compile(False);
+    LBuildResult := LCompiler.Compile(True, False);  // ABuild=True, AAutoRun=False
     LErrors      := LCompiler.GetErrors();
     LItems       := LErrors.GetItems();
 

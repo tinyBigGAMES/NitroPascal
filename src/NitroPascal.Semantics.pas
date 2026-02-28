@@ -239,6 +239,35 @@ begin
     end);
 end;
 
+// --- Forward Declarations (unit interface section) ---
+
+procedure RegisterForwardDecls(const AParse: TParse);
+begin
+  AParse.Config().RegisterSemanticRule('stmt.proc_forward',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    var
+      LAttr: TValue;
+      LName: string;
+    begin
+      ANode.GetAttr('decl.name', LAttr);
+      LName := LAttr.AsString;
+      // Declare the symbol so it's visible; params belong to the
+      // implementation body scope, not the global scope.
+      ASem.DeclareSymbol(LName, ANode);
+    end);
+
+  AParse.Config().RegisterSemanticRule('stmt.func_forward',
+    procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
+    var
+      LAttr: TValue;
+      LName: string;
+    begin
+      ANode.GetAttr('decl.name', LAttr);
+      LName := LAttr.AsString;
+      ASem.DeclareSymbol(LName, ANode);
+    end);
+end;
+
 // --- Parameter Declaration ---
 
 procedure RegisterParamDecl(const AParse: TParse);
@@ -258,7 +287,10 @@ begin
         TValue.From<string>(LTypeKind));
       TParseASTNode(ANode).SetAttr(PARSE_ATTR_STORAGE_CLASS,
         TValue.From<string>('param'));
-      LParamName := ANode.GetToken().Text;
+      ANode.GetAttr('param.name', LTypeAttr);
+      LParamName := LTypeAttr.AsString;
+      if LParamName = '' then
+        LParamName := ANode.GetToken().Text;
       if not ASem.DeclareSymbol(LParamName, ANode) then
         ASem.AddSemanticError(ANode, 'S100',
           'Duplicate declaration: ' + LParamName);
@@ -676,6 +708,7 @@ begin
   RegisterTypeDecls(AParse);
   RegisterProcDecl(AParse);
   RegisterFuncDecl(AParse);
+  RegisterForwardDecls(AParse);
   RegisterParamDecl(AParse);
 
   // Control flow

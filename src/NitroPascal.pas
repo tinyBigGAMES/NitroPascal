@@ -34,6 +34,8 @@ interface
 
 uses
   System.SysUtils,
+  System.Classes,
+  System.Generics.Collections,
   Parse;
 
 const
@@ -47,7 +49,8 @@ type
   { TNitroPascal }
   TNitroPascal = class(TParseOutputObject)
   private
-    FParse: TParse;
+    FParse:       TParse;
+    FParsedUnits: TStringList;  // Tracks compiled unit deps (cycle detection)
 
     // Version info fields
     FAddVersionInfo: Boolean;
@@ -63,6 +66,21 @@ type
 
     // Applies manifest, icon, and version info to the compiled output
     procedure ApplyPostBuildResources(const AExePath: string);
+
+    // Extracts the unit names from a uses clause in a Pascal source file.
+    // Returns an empty list if no uses clause is present.
+    function ExtractUsesClause(const AFilename: string): TStringList;
+
+    // Compiles a single unit dependency (codegen only — no Zig build).
+    // Adds the generated .cpp to FParse for linking in the main build.
+    // Returns False if compilation fails.
+    function CompileUnitDep(const AUnitName, ASourceDir,
+      AOutputPath: string): Boolean;
+
+    // Recursively compiles all unit dependencies found in the uses clause
+    // of ASourceFile, depth-first. Cycle-safe via FParsedUnits.
+    function CompileUnitDeps(const ASourceFile,
+      AOutputPath: string): Boolean;
 
   public
     constructor Create(); override;
@@ -104,7 +122,7 @@ type
     procedure SetLineDirectives(const AEnabled: Boolean);
 
     // Pipeline
-    function Compile(const AAutoRun: Boolean = True): Boolean;
+    function Compile(const ABuild: Boolean = True; const AAutoRun: Boolean = True): Boolean;
     function Run(): Cardinal;
 
     // Results
@@ -127,7 +145,9 @@ constructor TNitroPascal.Create();
 begin
   inherited Create();
 
-  FParse := TParse.Create();
+  FParse        := TParse.Create();
+  FParsedUnits  := TStringList.Create();
+  FParsedUnits.CaseSensitive := False;
 
   // Wire the complete NitroPascal language definition onto the internal instance
   ConfigLexer(FParse);
@@ -153,6 +173,7 @@ end;
 
 destructor TNitroPascal.Destroy();
 begin
+  FreeAndNil(FParsedUnits);
   FreeAndNil(FParse);
   inherited Destroy();
 end;
@@ -334,10 +355,156 @@ begin
   FParse.SetLineDirectives(AEnabled);
 end;
 
-function TNitroPascal.Compile(const AAutoRun: Boolean): Boolean;
+function TNitroPascal.ExtractUsesClause(const AFilename: string): TStringList;
+var
+  LLines:    TStringList;
+  LI:        Integer;
+  LLine:     string;
+  LTrimmed:  string;
+  LUsesBody: string;
+  LIdx:      Integer;
+  LNames:    TArray<string>;
+  LName:     string;
+  LInUses:   Boolean;
+begin
+  Result := TStringList.Create();
+  LLines := TStringList.Create();
+  try
+    LLines.LoadFromFile(AFilename);
+    LInUses := False;
+    LUsesBody := '';
+    for LI := 0 to LLines.Count - 1 do
+    begin
+      LLine    := LLines[LI];
+      LTrimmed := LLine.Trim();
+      // Skip blank lines and single-line comments
+      if LTrimmed.IsEmpty or LTrimmed.StartsWith('//') or
+         LTrimmed.StartsWith('{') or LTrimmed.StartsWith('(*') then
+        Continue;
+      if not LInUses then
+      begin
+        // Look for 'uses' keyword (case-insensitive) after program/unit/library header
+        LIdx := LTrimmed.ToLower().IndexOf('uses');
+        if LIdx >= 0 then
+        begin
+          LInUses  := True;
+          LUsesBody := LTrimmed.Substring(LIdx + 4);  // text after 'uses'
+        end;
+      end
+      else
+        LUsesBody := LUsesBody + ' ' + LTrimmed;
+      if LInUses then
+      begin
+        // Check if we've hit the closing semicolon
+        LIdx := LUsesBody.IndexOf(';');
+        if LIdx >= 0 then
+        begin
+          LUsesBody := LUsesBody.Substring(0, LIdx);
+          LNames    := LUsesBody.Split([',']);
+          for LName in LNames do
+          begin
+            LTrimmed := LName.Trim();
+            if not LTrimmed.IsEmpty() then
+              Result.Add(LTrimmed);
+          end;
+          Break;
+        end;
+      end;
+    end;
+  finally
+    LLines.Free();
+  end;
+end;
+
+function TNitroPascal.CompileUnitDep(const AUnitName, ASourceDir,
+  AOutputPath: string): Boolean;
+var
+  LUnitFile:     string;
+  LUnitNP:       TNitroPascal;
+  LGeneratedCpp: string;
+  LI:            Integer;
+begin
+  Result := False;
+  // Locate unit source file alongside the main source
+  LUnitFile := TPath.Combine(ASourceDir, AUnitName + '.pas');
+  if not TFile.Exists(LUnitFile) then
+  begin
+    FParse.GetErrors().Add(esError, 'C010',
+      Format('Unit source file not found: %s', [LUnitFile]));
+    Exit;
+  end;
+  // Compile the unit: codegen only (ABuild=False), same output path
+  LUnitNP := TNitroPascal.Create();
+  try
+    LUnitNP.SetStatusCallback(FStatusCallback.Callback, FStatusCallback.UserData);
+    LUnitNP.SetSourceFile(LUnitFile);
+    LUnitNP.SetOutputPath(AOutputPath);
+    LUnitNP.SetBuildMode(bmLib);
+    // Wire the np:: runtime include path so the unit can find np/np.hpp
+    LUnitNP.FParse.AddIncludePath(TPath.Combine(
+      TPath.GetDirectoryName(ParamStr(0)), 'res\runtime'));
+    // Compile dependencies of this unit first (transitive, cycle-safe)
+    if not LUnitNP.CompileUnitDeps(LUnitFile, AOutputPath) then
+      Exit;
+    // Run unit compile regardless of outcome so all messages are collected
+    LUnitNP.FParse.Compile(False, False);
+    // Always relay all messages (hints, warnings, errors) to main compiler
+    for LI := 0 to LUnitNP.GetErrors().Count() - 1 do
+      FParse.GetErrors().Add(
+        LUnitNP.GetErrors().GetItems()[LI].Range,
+        LUnitNP.GetErrors().GetItems()[LI].Severity,
+        LUnitNP.GetErrors().GetItems()[LI].Code,
+        LUnitNP.GetErrors().GetItems()[LI].Message);
+    // Exit if unit compile failed
+    if LUnitNP.HasErrors() then
+      Exit;
+    // Add unit's generated .cpp to the main build
+    LGeneratedCpp := TPath.Combine(AOutputPath,
+      TPath.Combine('generated', AUnitName + '.cpp'));
+    FParse.AddSourceFile(LGeneratedCpp);
+    // Also add the generated path to include paths for the header
+    FParse.AddIncludePath(TPath.Combine(AOutputPath, 'generated'));
+    Result := True;
+  finally
+    LUnitNP.Free();
+  end;
+end;
+
+function TNitroPascal.CompileUnitDeps(const ASourceFile,
+  AOutputPath: string): Boolean;
+var
+  LUnitNames: TStringList;
+  LI:         Integer;
+  LUnitName:  string;
+  LSourceDir: string;
+begin
+  Result     := True;
+  LSourceDir := TPath.GetDirectoryName(ASourceFile);
+  LUnitNames := ExtractUsesClause(ASourceFile);
+  try
+    for LI := 0 to LUnitNames.Count - 1 do
+    begin
+      LUnitName := LUnitNames[LI];
+      // Skip if already compiled (cycle detection)
+      if FParsedUnits.IndexOf(LUnitName) >= 0 then
+        Continue;
+      FParsedUnits.Add(LUnitName);
+      if not CompileUnitDep(LUnitName, LSourceDir, AOutputPath) then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  finally
+    LUnitNames.Free();
+  end;
+end;
+
+function TNitroPascal.Compile(const ABuild: Boolean; const AAutoRun: Boolean): Boolean;
 var
   LExePath:     string;
   LRuntimePath: string;
+  LOutputPath:  string;
 begin
   // Wire the np:: runtime library into every compile — include path so
   // generated code can #include "runtime.h", plus all .cpp translation units.
@@ -347,7 +514,20 @@ begin
   // runtime.cpp is a unity build that #includes all module .cpp files
   FParse.AddSourceFile(TPath.Combine(LRuntimePath, 'runtime.cpp'));
 
-  Result := FParse.Compile(AAutoRun);
+  // Resolve output path (mirrors TParse.Compile default behaviour)
+  LOutputPath := FParse.GetOutputPath();
+  if LOutputPath = '' then
+    LOutputPath := TPath.GetDirectoryName(FParse.GetSourceFile());
+
+  // Compile all unit dependencies (codegen only) before the main build
+  FParsedUnits.Clear();
+  if not CompileUnitDeps(FParse.GetSourceFile(), LOutputPath) then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  Result := FParse.Compile(ABuild, AAutoRun);
 
   // Apply post-build resources (manifest, icon, version info) on successful compile
   if Result then

@@ -21,16 +21,22 @@ void InitializeConsole();
 // I/O FUNCTIONS
 // ============================================================================
 
+template<typename T>
+auto BoolFmt(T&& val) -> decltype(std::forward<T>(val)) {
+    return std::forward<T>(val);
+}
+inline const char* BoolFmt(bool val) {
+    return val ? "TRUE" : "FALSE";
+}
+
 template<typename... Args>
 void Write(Args&&... args) {
-    std::cout << std::boolalpha;
-    (std::cout << ... << std::forward<Args>(args));
+    (std::cout << ... << BoolFmt(std::forward<Args>(args)));
 }
 
 template<typename... Args>
 void WriteLn(Args&&... args) {
-    std::cout << std::boolalpha;
-    (std::cout << ... << std::forward<Args>(args));
+    (std::cout << ... << BoolFmt(std::forward<Args>(args)));
     std::cout << std::endl;
 }
 

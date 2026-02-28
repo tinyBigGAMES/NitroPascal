@@ -112,11 +112,39 @@ begin
   AParse.Config().RegisterEmitter('stmt.pascal_program',
     procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
     var
-      LI: Integer;
+      LI:        Integer;
+      LJ:        Integer;
+      LChild:    TParseASTNodeBase;
+      LUsesNode: TParseASTNodeBase;
+      LItemNode: TParseASTNodeBase;
+      LUnitName: string;
+      LAttr:     TValue;
     begin
-      // Emit all children except the last (main begin_block)
+      // Emit #include for each unit in the uses clause (if present)
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() = 'stmt.uses_clause' then
+        begin
+          LUsesNode := LChild;
+          for LJ := 0 to LUsesNode.ChildCount() - 1 do
+          begin
+            LItemNode := LUsesNode.GetChild(LJ);
+            LItemNode.GetAttr('decl.name', LAttr);
+            LUnitName := LAttr.AsString;
+            AGen.Include(LUnitName + '.h', sfHeader);
+          end;
+          Break;
+        end;
+      end;
+      // Emit all children except the last (main begin_block),
+      // skipping the uses_clause which was handled above
       for LI := 0 to ANode.ChildCount() - 2 do
-        AGen.EmitNode(ANode.GetChild(LI));
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() <> 'stmt.uses_clause' then
+          AGen.EmitNode(LChild);
+      end;
       // Wrap last child in main()
       AGen.Func('main', 'int');
       AGen.Param('argc', 'int');
@@ -420,13 +448,17 @@ begin
         // var/out params are passed by reference in C++
         if (LModifier = 'var') or (LModifier = 'out') then
           LCppType := LCppType + '&';
-        LParamName := LChild.GetToken().Text;
+        LChild.GetAttr('param.name', LAttr);
+        LParamName := LAttr.AsString;
+        if LParamName = '' then LParamName := LChild.GetToken().Text;
         if LParams <> '' then
           LParams := LParams + ', ';
         LParams := LParams + LCppType + ' ' + LParamName;
       end;
-      // Forward declaration to header
-      AGen.EmitLine('void %s(%s);', [LNodeName, LParams], sfHeader);
+      // Forward declaration to header (suppressed inside unit implementation)
+      ANode.GetAttr('decl.suppress_forward', LAttr);
+      if not (LAttr.IsType<Boolean> and LAttr.AsBoolean) then
+        AGen.EmitLine('void %s(%s);', [LNodeName, LParams], sfHeader);
       // Full definition to source
       AGen.Func(LNodeName, 'void');
       for LI := 0 to ANode.ChildCount() - 2 do
@@ -442,7 +474,9 @@ begin
         // var/out params are passed by reference in C++
         if (LModifier = 'var') or (LModifier = 'out') then
           LCppType := LCppType + '&';
-        LParamName := LChild.GetToken().Text;
+        LChild.GetAttr('param.name', LAttr);
+        LParamName := LAttr.AsString;
+        if LParamName = '' then LParamName := LChild.GetToken().Text;
         AGen.Param(LParamName, LCppType);
       end;
       // Emit any var/const declaration blocks (children between params and body)
@@ -500,13 +534,17 @@ begin
         // var/out params are passed by reference in C++
         if (LModifier = 'var') or (LModifier = 'out') then
           LCppType := LCppType + '&';
-        LParamName := LChild.GetToken().Text;
+        LChild.GetAttr('param.name', LAttr);
+        LParamName := LAttr.AsString;
+        if LParamName = '' then LParamName := LChild.GetToken().Text;
         if LParams <> '' then
           LParams := LParams + ', ';
         LParams := LParams + LCppType + ' ' + LParamName;
       end;
-      // Forward declaration to header
-      AGen.EmitLine('%s %s(%s);', [LCppReturn, LNodeName, LParams], sfHeader);
+      // Forward declaration to header (suppressed inside unit implementation)
+      ANode.GetAttr('decl.suppress_forward', LAttr);
+      if not (LAttr.IsType<Boolean> and LAttr.AsBoolean) then
+        AGen.EmitLine('%s %s(%s);', [LCppReturn, LNodeName, LParams], sfHeader);
       // Full definition to source
       AGen.Func(LNodeName, LCppReturn);
       for LI := 0 to ANode.ChildCount() - 2 do
@@ -522,7 +560,9 @@ begin
         // var/out params are passed by reference in C++
         if (LModifier = 'var') or (LModifier = 'out') then
           LCppType := LCppType + '&';
-        LParamName := LChild.GetToken().Text;
+        LChild.GetAttr('param.name', LAttr);
+        LParamName := LAttr.AsString;
+        if LParamName = '' then LParamName := LChild.GetToken().Text;
         AGen.Param(LParamName, LCppType);
       end;
       // Declare Result variable
@@ -1316,6 +1356,263 @@ end;
 
 // === Public Entry Point ===
 
+
+// =========================================================================
+// COMPILATION UNIT STRUCTURES
+// =========================================================================
+
+// --- Pascal Unit ---
+// Emits interface section to sfHeader, implementation section to sfSource.
+// Header gets: #pragma once, #include for np runtime, forward decls.
+// Source gets: #include "UnitName.h", full function bodies.
+
+procedure RegisterPascalUnit(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.pascal_unit',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:        Integer;
+      LJ:        Integer;
+      LChild:    TParseASTNodeBase;
+      LItemNode: TParseASTNodeBase;
+      LUnitName: string;
+      LAttr:     TValue;
+    begin
+      ANode.GetAttr('decl.name', LAttr);
+      LUnitName := LAttr.AsString;
+      // Header guard and runtime include go to sfHeader
+      AGen.EmitLine('#include "runtime.h"', sfHeader);
+      // Emit #include for each unit in the uses clause to sfHeader
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() = 'stmt.uses_clause' then
+        begin
+          for LJ := 0 to LChild.ChildCount() - 1 do
+          begin
+            LItemNode := LChild.GetChild(LJ);
+            LItemNode.GetAttr('decl.name', LAttr);
+            AGen.Include(LAttr.AsString + '.h', sfHeader);
+          end;
+          Break;
+        end;
+      end;
+      // Self-include in source file
+      AGen.Include(LUnitName + '.h', sfSource);
+      // Walk interface and implementation sections
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() = 'stmt.unit_interface' then
+          AGen.EmitNode(LChild)
+        else if LChild.GetNodeKind() = 'stmt.unit_implementation' then
+          AGen.EmitNode(LChild);
+        // uses_clause already handled above — skip
+      end;
+    end);
+end;
+
+// --- Unit Interface Section ---
+// Forward declarations: proc/func prototypes to sfHeader,
+// var/const/type declarations also to sfHeader.
+
+procedure RegisterUnitInterface(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.unit_interface',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:    Integer;
+      LChild: TParseASTNodeBase;
+      LKind:  string;
+      LName:  string;
+    begin
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        LKind  := LChild.GetNodeKind();
+        if (LKind = 'stmt.proc_forward') or (LKind = 'stmt.func_forward') then
+        begin
+          // Emit prototype to header — node emitters handle the signature
+          LName := LChild.GetNodeKind();  // unused, suppress hint
+          // Build prototype by emitting the node — CodeGen handles proc/func
+          // forward nodes by emitting only the signature line
+          AGen.EmitNode(LChild);
+        end
+        else
+          // var/const/type blocks — emit to header
+          AGen.EmitNode(LChild);
+      end;
+    end);
+end;
+
+// --- Procedure Forward Declaration (interface prototype) ---
+
+procedure RegisterProcForward(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.proc_forward',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:         Integer;
+      LParamNode: TParseASTNodeBase;
+      LName:      string;
+      LParamName: string;
+      LParamType: string;
+      LModifier:  string;
+      LSig:       string;
+      LAttr:      TValue;
+    begin
+      ANode.GetAttr('decl.name', LAttr);
+      LName := LAttr.AsString;
+      LSig := 'void ' + LName + '(';
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LParamNode := ANode.GetChild(LI);
+        if LParamNode.GetNodeKind() = 'stmt.param_decl' then
+        begin
+          if LI > 0 then LSig := LSig + ', ';
+          LParamNode.GetAttr('param.modifier', LAttr);
+          LModifier  := LAttr.AsString;
+          LParamNode.GetAttr('param.type_text', LAttr);
+          LParamType := ResolveTypeIR(AParse, LAttr.AsString);
+          LParamNode.GetAttr('param.name', LAttr);
+          LParamName := LAttr.AsString;
+          if LParamName = '' then
+            LParamName := LParamNode.GetToken().Text;
+          if LModifier = 'var' then
+            LSig := LSig + LParamType + '& ' + LParamName
+          else
+            LSig := LSig + LParamType + ' ' + LParamName;
+        end;
+      end;
+      LSig := LSig + ');';
+      AGen.EmitLine(LSig, sfHeader);
+    end);
+end;
+
+// --- Function Forward Declaration (interface prototype) ---
+
+procedure RegisterFuncForward(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.func_forward',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:         Integer;
+      LParamNode: TParseASTNodeBase;
+      LName:      string;
+      LRetType:   string;
+      LParamName: string;
+      LParamType: string;
+      LModifier:  string;
+      LSig:       string;
+      LAttr:      TValue;
+    begin
+      ANode.GetAttr('decl.name', LAttr);
+      LName    := LAttr.AsString;
+      ANode.GetAttr('decl.return_type', LAttr);
+      LRetType := ResolveTypeIR(AParse, LAttr.AsString);
+      LSig := LRetType + ' ' + LName + '(';
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LParamNode := ANode.GetChild(LI);
+        if LParamNode.GetNodeKind() = 'stmt.param_decl' then
+        begin
+          if LI > 0 then LSig := LSig + ', ';
+          LParamNode.GetAttr('param.modifier', LAttr);
+          LModifier  := LAttr.AsString;
+          LParamNode.GetAttr('param.type_text', LAttr);
+          LParamType := ResolveTypeIR(AParse, LAttr.AsString);
+          LParamNode.GetAttr('param.name', LAttr);
+          LParamName := LAttr.AsString;
+          if LParamName = '' then
+            LParamName := LParamNode.GetToken().Text;
+          if LModifier = 'var' then
+            LSig := LSig + LParamType + '& ' + LParamName
+          else
+            LSig := LSig + LParamType + ' ' + LParamName;
+        end;
+      end;
+      LSig := LSig + ');';
+      AGen.EmitLine(LSig, sfHeader);
+    end);
+end;
+
+// --- Unit Implementation Section ---
+// Full proc/func bodies go to sfSource.
+
+procedure RegisterUnitImplementation(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.unit_implementation',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:     Integer;
+      LChild: TParseASTNodeBase;
+      LKind:  string;
+    begin
+      // Emit children but suppress header forward declarations for func/proc —
+      // the interface section already emitted the prototypes.
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        LKind  := LChild.GetNodeKind();
+        if (LKind = 'stmt.func_decl') or (LKind = 'stmt.proc_decl') then
+          TParseASTNode(LChild).SetAttr('decl.suppress_forward',
+            TValue.From<Boolean>(True));
+        AGen.EmitNode(LChild);
+      end;
+    end);
+end;
+
+// --- Pascal Library ---
+// Like a program but builds as bmDll. No main(), optional exports clause.
+
+procedure RegisterPascalLibrary(const AParse: TParse);
+begin
+  AParse.Config().RegisterEmitter('stmt.pascal_library',
+    procedure(ANode: TParseASTNodeBase; AGen: TParseIRBase)
+    var
+      LI:       Integer;
+      LJ:       Integer;
+      LChild:   TParseASTNodeBase;
+      LItemNode: TParseASTNodeBase;
+      LKind:    string;
+      LAttr:    TValue;
+    begin
+      AGen.EmitLine('#include "runtime.h"', sfHeader);
+      // Emit #include for uses clause units
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() = 'stmt.uses_clause' then
+        begin
+          for LJ := 0 to LChild.ChildCount() - 1 do
+          begin
+            LItemNode := LChild.GetChild(LJ);
+            LItemNode.GetAttr('decl.name', LAttr);
+            AGen.Include(LAttr.AsString + '.h', sfHeader);
+          end;
+          Break;
+        end;
+      end;
+      // Emit all non-structural children (var/const/type/proc/func)
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        LKind  := LChild.GetNodeKind();
+        if (LKind <> 'stmt.uses_clause') and
+           (LKind <> 'stmt.exports_clause') and
+           (LKind <> 'stmt.begin_block') then
+          AGen.EmitNode(LChild);
+      end;
+      // Emit init block if present (library initialisation body)
+      for LI := 0 to ANode.ChildCount() - 1 do
+      begin
+        LChild := ANode.GetChild(LI);
+        if LChild.GetNodeKind() = 'stmt.begin_block' then
+          AGen.EmitNode(LChild);
+      end;
+    end);
+end;
+
 procedure ConfigCodeGen(const AParse: TParse);
 begin
   // Type mapping -- np:: aliases for all Delphi types
@@ -1324,6 +1621,12 @@ begin
   // Program structure
   RegisterProgramRoot(AParse);
   RegisterPascalProgram(AParse);
+  RegisterPascalUnit(AParse);
+  RegisterUnitInterface(AParse);
+  RegisterProcForward(AParse);
+  RegisterFuncForward(AParse);
+  RegisterUnitImplementation(AParse);
+  RegisterPascalLibrary(AParse);
 
   // Declarations
   RegisterVarBlock(AParse);

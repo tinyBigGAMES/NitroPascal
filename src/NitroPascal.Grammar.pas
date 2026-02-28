@@ -23,6 +23,7 @@ procedure ConfigGrammar(const AParse: TParse);
 implementation
 
 uses
+  System.Classes,
   System.Rtti;
 
 // =========================================================================
@@ -482,13 +483,24 @@ end;
 // =========================================================================
 
 // --- Program Header ---
+// BNF: ProgramDecl = "program" Identifier ";"
+//                    [ "uses" UnitList ";" ]
+//                    { VarBlock | ConstBlock | TypeBlock }
+//                    { ProcDecl | FuncDecl }
+//                    BeginBlock "." .
+// AST: stmt.pascal_program
+//        [stmt.uses_clause [stmt.uses_item ...]]
+//        { decl nodes }
+//        stmt.begin_block
 
 procedure RegisterProgramStmt(const AParse: TParse);
 begin
   AParse.Config().RegisterStatement('keyword.program', 'stmt.pascal_program',
     function(AParser: TParseParserBase): TParseASTNodeBase
     var
-      LNode: TParseASTNode;
+      LNode:     TParseASTNode;
+      LUsesNode: TParseASTNode;
+      LItemNode: TParseASTNode;
     begin
       LNode := AParser.CreateNode();
       AParser.Consume();  // consume 'program'
@@ -496,6 +508,20 @@ begin
         TValue.From<string>(AParser.CurrentToken().Text));
       AParser.Consume();  // consume program name
       AParser.Expect('delimiter.semicolon');
+      // Optional uses clause: uses UnitA, UnitB;
+      if AParser.Match('keyword.uses') then
+      begin
+        LUsesNode := AParser.CreateNode('stmt.uses_clause', AParser.CurrentToken());
+        repeat
+          LItemNode := AParser.CreateNode('stmt.uses_item', AParser.CurrentToken());
+          LItemNode.SetAttr('decl.name',
+            TValue.From<string>(AParser.CurrentToken().Text));
+          AParser.Consume();  // consume unit name
+          LUsesNode.AddChild(LItemNode);
+        until not AParser.Match('delimiter.comma');
+        AParser.Expect('delimiter.semicolon');
+        LNode.AddChild(LUsesNode);
+      end;
       // Any number of var/const/type blocks in any order
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
@@ -641,12 +667,16 @@ begin
   AParse.Config().RegisterStatement('keyword.procedure', 'stmt.proc_decl',
     function(AParser: TParseParserBase): TParseASTNodeBase
     var
-      LNode:      TParseASTNode;
-      LParamNode: TParseASTNode;
-      LNameTok:   TParseToken;
-      LParamTok:  TParseToken;
-      LModifier:  string;
+      LNode:       TParseASTNode;
+      LParamNode:  TParseASTNode;
+      LNameTok:    TParseToken;
+      LParamTok:   TParseToken;
+      LModifier:   string;
+      LFillIdx:    Integer;
+      LParamNames: TStringList;
     begin
+      LParamNames := TStringList.Create();
+      try
       AParser.Consume();  // consume 'procedure'
       LNameTok := AParser.CurrentToken();
       LNode := AParser.CreateNode('stmt.proc_decl', LNameTok);
@@ -665,16 +695,28 @@ begin
             LModifier := 'const'
           else if AParser.Match('keyword.out') then
             LModifier := 'out';
-          LParamTok := AParser.CurrentToken();
-          AParser.Consume();  // consume param name
+          // Collect comma-separated names: const A, B, C: Integer
+          LParamNames.Clear();
+          LParamNames.Add(AParser.CurrentToken().Text);
+          AParser.Consume();  // consume first param name
+          while AParser.Match('delimiter.comma') do
+          begin
+            LParamNames.Add(AParser.CurrentToken().Text);
+            AParser.Consume();  // consume next param name
+          end;
           AParser.Expect('delimiter.colon');
-          LParamNode := AParser.CreateNode('stmt.param_decl', LParamTok);
-          LParamNode.SetAttr('param.modifier',
-            TValue.From<string>(LModifier));
-          LParamNode.SetAttr('param.type_text',
-            TValue.From<string>(AParser.CurrentToken().Text));
+          // Emit one node per collected name, all sharing modifier and type
+          for LFillIdx := 0 to LParamNames.Count - 1 do
+          begin
+            LParamNode := AParser.CreateNode('stmt.param_decl',
+              AParser.CurrentToken());
+            LParamNode.SetAttr('param.modifier', TValue.From<string>(LModifier));
+            LParamNode.SetAttr('param.name', TValue.From<string>(LParamNames[LFillIdx]));
+            LParamNode.SetAttr('param.type_text',
+              TValue.From<string>(AParser.CurrentToken().Text));
+            LNode.AddChild(LParamNode);
+          end;
           AParser.Consume();  // consume type keyword
-          LNode.AddChild(LParamNode);
           if AParser.Check('delimiter.semicolon') then
             AParser.Consume()  // separator between params
           else
@@ -692,6 +734,9 @@ begin
       LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       AParser.Expect('delimiter.semicolon');  // ; after end
       Result := LNode;
+      finally
+        LParamNames.Free();
+      end;
     end);
 end;
 
@@ -702,12 +747,16 @@ begin
   AParse.Config().RegisterStatement('keyword.function', 'stmt.func_decl',
     function(AParser: TParseParserBase): TParseASTNodeBase
     var
-      LNode:      TParseASTNode;
-      LParamNode: TParseASTNode;
-      LNameTok:   TParseToken;
-      LParamTok:  TParseToken;
-      LModifier:  string;
+      LNode:       TParseASTNode;
+      LParamNode:  TParseASTNode;
+      LNameTok:    TParseToken;
+      LParamTok:   TParseToken;
+      LModifier:   string;
+      LFillIdx:    Integer;
+      LParamNames: TStringList;
     begin
+      LParamNames := TStringList.Create();
+      try
       AParser.Consume();  // consume 'function'
       LNameTok := AParser.CurrentToken();
       LNode := AParser.CreateNode('stmt.func_decl', LNameTok);
@@ -726,16 +775,28 @@ begin
             LModifier := 'const'
           else if AParser.Match('keyword.out') then
             LModifier := 'out';
-          LParamTok := AParser.CurrentToken();
-          AParser.Consume();  // consume param name
+          // Collect comma-separated names: const A, B, C: Integer
+          LParamNames.Clear();
+          LParamNames.Add(AParser.CurrentToken().Text);
+          AParser.Consume();  // consume first param name
+          while AParser.Match('delimiter.comma') do
+          begin
+            LParamNames.Add(AParser.CurrentToken().Text);
+            AParser.Consume();  // consume next param name
+          end;
           AParser.Expect('delimiter.colon');
-          LParamNode := AParser.CreateNode('stmt.param_decl', LParamTok);
-          LParamNode.SetAttr('param.modifier',
-            TValue.From<string>(LModifier));
-          LParamNode.SetAttr('param.type_text',
-            TValue.From<string>(AParser.CurrentToken().Text));
+          // Emit one node per collected name, all sharing modifier and type
+          for LFillIdx := 0 to LParamNames.Count - 1 do
+          begin
+            LParamNode := AParser.CreateNode('stmt.param_decl',
+              AParser.CurrentToken());
+            LParamNode.SetAttr('param.modifier', TValue.From<string>(LModifier));
+            LParamNode.SetAttr('param.name', TValue.From<string>(LParamNames[LFillIdx]));
+            LParamNode.SetAttr('param.type_text',
+              TValue.From<string>(AParser.CurrentToken().Text));
+            LNode.AddChild(LParamNode);
+          end;
           AParser.Consume();  // consume type keyword
-          LNode.AddChild(LParamNode);
           if AParser.Check('delimiter.semicolon') then
             AParser.Consume()  // separator between params
           else
@@ -757,6 +818,9 @@ begin
       LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       AParser.Expect('delimiter.semicolon');  // ; after end
       Result := LNode;
+      finally
+        LParamNames.Free();
+      end;
     end);
 end;
 
@@ -1544,6 +1608,270 @@ begin
     end);
 end;
 
+
+// --- Unit Declaration ---
+// BNF: UnitDecl = "unit" Identifier ";"
+//                 [ "uses" UnitList ";" ]
+//                 "interface"
+//                   { VarBlock | ConstBlock | TypeBlock | ProcForward | FuncForward }
+//                 "implementation"
+//                   { VarBlock | ConstBlock | TypeBlock | ProcDecl | FuncDecl }
+//                 "end" "." .
+// AST: stmt.pascal_unit
+//        [stmt.uses_clause [stmt.uses_item ...]]
+//        stmt.unit_interface  { decl nodes }
+//        stmt.unit_implementation { decl nodes }
+
+procedure RegisterUnitStmt(const AParse: TParse);
+begin
+  AParse.Config().RegisterStatement('keyword.unit', 'stmt.pascal_unit',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:       TParseASTNode;
+      LUsesNode:   TParseASTNode;
+      LItemNode:   TParseASTNode;
+      LIntfNode:   TParseASTNode;
+      LImplNode:   TParseASTNode;
+      LFwdNode:    TParseASTNode;
+      LParamNode:  TParseASTNode;
+      LNameTok:    TParseToken;
+      LParamTok:   TParseToken;
+      LModifier:   string;
+      LFillIdx:    Integer;
+      LParamNames: TStringList;
+    begin
+      LParamNames := TStringList.Create();
+      try
+      LNode := AParser.CreateNode();
+      AParser.Consume();  // consume 'unit'
+      LNode.SetAttr('decl.name',
+        TValue.From<string>(AParser.CurrentToken().Text));
+      AParser.Consume();  // consume unit name
+      AParser.Expect('delimiter.semicolon');
+      // Optional uses clause
+      if AParser.Match('keyword.uses') then
+      begin
+        LUsesNode := AParser.CreateNode('stmt.uses_clause', AParser.CurrentToken());
+        repeat
+          LItemNode := AParser.CreateNode('stmt.uses_item', AParser.CurrentToken());
+          LItemNode.SetAttr('decl.name',
+            TValue.From<string>(AParser.CurrentToken().Text));
+          AParser.Consume();  // consume unit name
+          LUsesNode.AddChild(LItemNode);
+        until not AParser.Match('delimiter.comma');
+        AParser.Expect('delimiter.semicolon');
+        LNode.AddChild(LUsesNode);
+      end;
+      // Interface section -- forward declarations only (no bodies)
+      AParser.Expect('keyword.interface');
+      LIntfNode := AParser.CreateNode('stmt.unit_interface', AParser.CurrentToken());
+      while AParser.Check('keyword.var') or
+            AParser.Check('keyword.const') or
+            AParser.Check('keyword.type') or
+            AParser.Check('keyword.procedure') or
+            AParser.Check('keyword.function') do
+      begin
+        if AParser.Check('keyword.var') or
+           AParser.Check('keyword.const') or
+           AParser.Check('keyword.type') then
+          LIntfNode.AddChild(TParseASTNode(AParser.ParseStatement()))
+        else if AParser.Check('keyword.procedure') then
+        begin
+          // Forward procedure: "procedure Name[(params)];"  -- no body
+          AParser.Consume();  // consume 'procedure'
+          LNameTok := AParser.CurrentToken();
+          LFwdNode := AParser.CreateNode('stmt.proc_forward', LNameTok);
+          LFwdNode.SetAttr('decl.name', TValue.From<string>(LNameTok.Text));
+          AParser.Consume();  // consume name
+          if AParser.Match('delimiter.lparen') then
+          begin
+            while not AParser.Check('delimiter.rparen') do
+            begin
+              LModifier := '';
+              if AParser.Match('keyword.var') then LModifier := 'var'
+              else if AParser.Match('keyword.const') then LModifier := 'const'
+              else if AParser.Match('keyword.out') then LModifier := 'out';
+              // Collect comma-separated names: const A, B: Integer
+              LParamNames.Clear();
+              LParamNames.Add(AParser.CurrentToken().Text);
+              AParser.Consume();  // consume first param name
+              while AParser.Match('delimiter.comma') do
+              begin
+                LParamNames.Add(AParser.CurrentToken().Text);
+                AParser.Consume();  // consume next param name
+              end;
+              AParser.Expect('delimiter.colon');
+              // Emit one node per collected name, all sharing modifier and type
+              for LFillIdx := 0 to LParamNames.Count - 1 do
+              begin
+                LParamNode := AParser.CreateNode('stmt.param_decl',
+                  AParser.CurrentToken());
+                LParamNode.SetAttr('param.modifier', TValue.From<string>(LModifier));
+                LParamNode.SetAttr('param.name', TValue.From<string>(LParamNames[LFillIdx]));
+                LParamNode.SetAttr('param.type_text',
+                  TValue.From<string>(AParser.CurrentToken().Text));
+                LFwdNode.AddChild(LParamNode);
+              end;
+              AParser.Consume();  // consume type
+              if AParser.Check('delimiter.semicolon') then
+                AParser.Consume()  // separator between params
+              else
+                Break;
+            end;
+            AParser.Expect('delimiter.rparen');
+          end;
+          AParser.Expect('delimiter.semicolon');
+          LIntfNode.AddChild(LFwdNode);
+        end
+        else  // keyword.function forward
+        begin
+          // Forward function: "function Name[(params)]: ReturnType;"  -- no body
+          AParser.Consume();  // consume 'function'
+          LNameTok := AParser.CurrentToken();
+          LFwdNode := AParser.CreateNode('stmt.func_forward', LNameTok);
+          LFwdNode.SetAttr('decl.name', TValue.From<string>(LNameTok.Text));
+          AParser.Consume();  // consume name
+          if AParser.Match('delimiter.lparen') then
+          begin
+            while not AParser.Check('delimiter.rparen') do
+            begin
+              LModifier := '';
+              if AParser.Match('keyword.var') then LModifier := 'var'
+              else if AParser.Match('keyword.const') then LModifier := 'const'
+              else if AParser.Match('keyword.out') then LModifier := 'out';
+              // Collect comma-separated names: const A, B: Integer
+              LParamNames.Clear();
+              LParamNames.Add(AParser.CurrentToken().Text);
+              AParser.Consume();  // consume first param name
+              while AParser.Match('delimiter.comma') do
+              begin
+                LParamNames.Add(AParser.CurrentToken().Text);
+                AParser.Consume();  // consume next param name
+              end;
+              AParser.Expect('delimiter.colon');
+              // Emit one node per collected name, all sharing modifier and type
+              for LFillIdx := 0 to LParamNames.Count - 1 do
+              begin
+                LParamNode := AParser.CreateNode('stmt.param_decl',
+                  AParser.CurrentToken());
+                LParamNode.SetAttr('param.modifier', TValue.From<string>(LModifier));
+                LParamNode.SetAttr('param.name', TValue.From<string>(LParamNames[LFillIdx]));
+                LParamNode.SetAttr('param.type_text',
+                  TValue.From<string>(AParser.CurrentToken().Text));
+                LFwdNode.AddChild(LParamNode);
+              end;
+              AParser.Consume();  // consume type
+              if AParser.Check('delimiter.semicolon') then
+                AParser.Consume()  // separator between params
+              else
+                Break;
+            end;
+            AParser.Expect('delimiter.rparen');
+          end;
+          AParser.Expect('delimiter.colon');
+          LFwdNode.SetAttr('decl.return_type',
+            TValue.From<string>(AParser.CurrentToken().Text));
+          AParser.Consume();  // consume return type
+          AParser.Expect('delimiter.semicolon');
+          LIntfNode.AddChild(LFwdNode);
+        end;
+      end;
+      LNode.AddChild(LIntfNode);
+      // Implementation section -- full proc/func bodies
+      AParser.Expect('keyword.implementation');
+      LImplNode := AParser.CreateNode('stmt.unit_implementation', AParser.CurrentToken());
+      while AParser.Check('keyword.var') or
+            AParser.Check('keyword.const') or
+            AParser.Check('keyword.type') or
+            AParser.Check('keyword.procedure') or
+            AParser.Check('keyword.function') do
+        LImplNode.AddChild(TParseASTNode(AParser.ParseStatement()));
+      LNode.AddChild(LImplNode);
+      AParser.Expect('keyword.end');
+      AParser.Expect('delimiter.dot');
+      Result := LNode;
+      finally
+        LParamNames.Free();
+      end;
+    end);
+end;
+
+// --- Library Declaration ---
+// BNF: LibraryDecl = "library" Identifier ";"
+//                    [ "uses" UnitList ";" ]
+//                    { VarBlock | ConstBlock | TypeBlock }
+//                    { ProcDecl | FuncDecl }
+//                    [ "exports" ExportList ";" ]
+//                    [ BeginBlock ]
+//                    "end" "." .
+// AST: stmt.pascal_library
+//        [stmt.uses_clause [stmt.uses_item ...]]
+//        { decl nodes }
+//        [stmt.exports_clause [stmt.exports_item ...]]
+//        [stmt.begin_block]
+
+procedure RegisterLibraryStmt(const AParse: TParse);
+begin
+  AParse.Config().RegisterStatement('keyword.library', 'stmt.pascal_library',
+    function(AParser: TParseParserBase): TParseASTNodeBase
+    var
+      LNode:     TParseASTNode;
+      LUsesNode: TParseASTNode;
+      LExpNode:  TParseASTNode;
+      LItemNode: TParseASTNode;
+    begin
+      LNode := AParser.CreateNode();
+      AParser.Consume();  // consume 'library'
+      LNode.SetAttr('decl.name',
+        TValue.From<string>(AParser.CurrentToken().Text));
+      AParser.Consume();  // consume library name
+      AParser.Expect('delimiter.semicolon');
+      // Optional uses clause
+      if AParser.Match('keyword.uses') then
+      begin
+        LUsesNode := AParser.CreateNode('stmt.uses_clause', AParser.CurrentToken());
+        repeat
+          LItemNode := AParser.CreateNode('stmt.uses_item', AParser.CurrentToken());
+          LItemNode.SetAttr('decl.name',
+            TValue.From<string>(AParser.CurrentToken().Text));
+          AParser.Consume();  // consume unit name
+          LUsesNode.AddChild(LItemNode);
+        until not AParser.Match('delimiter.comma');
+        AParser.Expect('delimiter.semicolon');
+        LNode.AddChild(LUsesNode);
+      end;
+      // Optional var/const/type blocks
+      while AParser.Check('keyword.var') or
+            AParser.Check('keyword.const') or
+            AParser.Check('keyword.type') do
+        LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
+      // Zero or more procedure/function declarations
+      while AParser.Check('keyword.procedure') or
+            AParser.Check('keyword.function') do
+        LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
+      // Optional exports clause
+      if AParser.Match('keyword.exports') then
+      begin
+        LExpNode := AParser.CreateNode('stmt.exports_clause', AParser.CurrentToken());
+        repeat
+          LItemNode := AParser.CreateNode('stmt.exports_item', AParser.CurrentToken());
+          LItemNode.SetAttr('decl.name',
+            TValue.From<string>(AParser.CurrentToken().Text));
+          AParser.Consume();  // consume export name
+          LExpNode.AddChild(LItemNode);
+        until not AParser.Match('delimiter.comma');
+        AParser.Expect('delimiter.semicolon');
+        LNode.AddChild(LExpNode);
+      end;
+      // Optional begin..end block
+      if AParser.Check('keyword.begin') then
+        LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
+      AParser.Expect('keyword.end');
+      AParser.Expect('delimiter.dot');
+      Result := LNode;
+    end);
+end;
+
 // === Public Entry Point ===
 
 procedure ConfigGrammar(const AParse: TParse);
@@ -1573,6 +1901,8 @@ begin
 
   // Statement handlers
   RegisterProgramStmt(AParse);
+  RegisterUnitStmt(AParse);
+  RegisterLibraryStmt(AParse);
   RegisterVarBlock(AParse);
   RegisterConstBlock(AParse);
   RegisterProcDecl(AParse);

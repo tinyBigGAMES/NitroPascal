@@ -73,6 +73,7 @@ begin
   {16} ATester.RegisterTest('test_program_string2',             True);
   {17} ATester.RegisterTest('test_program_fileio2',             True);
   {18} ATester.RegisterTest('test_program_fileio3',             True);
+  {19} ATester.RegisterTest('test_program_unit',                True);
 end;
 
 procedure RunTests(const ATestName: string; const APlatform: TParseTargetPlatform = tpWin64; const AOptLevel: TParseOptimizeLevel = olDebug); overload;
@@ -145,8 +146,8 @@ begin
    //LOptLevel := olReleaseFast;
    //LOptLevel := olReleaseSmall;
 
-    LPlatform := tpWin64;
-    //LPlatform := tpLinux64;
+    //LPlatform := tpWin64;
+    LPlatform := tpLinux64;
 
     //LTest := 'test_program_intrinsics';
     //LTest := 'test_program_exceptions';
