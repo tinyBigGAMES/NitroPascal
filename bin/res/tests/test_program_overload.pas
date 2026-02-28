@@ -19,14 +19,13 @@ begin
   Result := A + B;
 end;
 
-// overload + 'C' on unique Double params -- triggers W200, 'C' dropped
-function Add(A, B: Double): Double; overload; 'C';
+function Add(A, B: Double): Double; overload;
 begin
   Result := A + B;
 end;
 
 // C linkage function (no overload)
-function GetSize: Integer; 'C';
+function GetSize: Integer;
 begin
   Result := 42;
 end;

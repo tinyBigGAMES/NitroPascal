@@ -430,7 +430,6 @@ begin
       LModifier:     string;
       LCppType:      string;
       LParamName:    string;
-      LIsCLinkage:   Boolean;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LNodeName := LAttr.AsString;
@@ -456,21 +455,11 @@ begin
           LParams := LParams + ', ';
         LParams := LParams + LCppType + ' ' + LParamName;
       end;
-      // Determine C linkage
-      ANode.GetAttr('decl.c_linkage', LAttr);
-      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
       // Forward declaration to header (suppressed inside unit implementation)
       ANode.GetAttr('decl.suppress_forward', LAttr);
       if not (LAttr.IsType<Boolean> and LAttr.AsBoolean) then
-      begin
-        if LIsCLinkage then
-          AGen.EmitLine('extern "C" void %s(%s);', [LNodeName, LParams], sfHeader)
-        else
-          AGen.EmitLine('void %s(%s);', [LNodeName, LParams], sfHeader);
-      end;
+        AGen.EmitLine('void %s(%s);', [LNodeName, LParams], sfHeader);
       // Full definition to source
-      if LIsCLinkage then
-        AGen.EmitLine('extern "C" {');
       AGen.Func(LNodeName, 'void');
       for LI := 0 to ANode.ChildCount() - 2 do
       begin
@@ -501,8 +490,6 @@ begin
       // Body is last child
       AGen.EmitNode(ANode.GetChild(ANode.ChildCount() - 1));
       AGen.EndFunc();
-      if LIsCLinkage then
-        AGen.EmitLine('}');
     end);
 end;
 
@@ -526,7 +513,6 @@ begin
       LModifier:     string;
       LCppType:      string;
       LParamName:    string;
-      LIsCLinkage:   Boolean;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LNodeName := LAttr.AsString;
@@ -555,21 +541,11 @@ begin
           LParams := LParams + ', ';
         LParams := LParams + LCppType + ' ' + LParamName;
       end;
-      // Determine C linkage
-      ANode.GetAttr('decl.c_linkage', LAttr);
-      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
       // Forward declaration to header (suppressed inside unit implementation)
       ANode.GetAttr('decl.suppress_forward', LAttr);
       if not (LAttr.IsType<Boolean> and LAttr.AsBoolean) then
-      begin
-        if LIsCLinkage then
-          AGen.EmitLine('extern "C" %s %s(%s);', [LCppReturn, LNodeName, LParams], sfHeader)
-        else
-          AGen.EmitLine('%s %s(%s);', [LCppReturn, LNodeName, LParams], sfHeader);
-      end;
+        AGen.EmitLine('%s %s(%s);', [LCppReturn, LNodeName, LParams], sfHeader);
       // Full definition to source
-      if LIsCLinkage then
-        AGen.EmitLine('extern "C" {');
       AGen.Func(LNodeName, LCppReturn);
       for LI := 0 to ANode.ChildCount() - 2 do
       begin
@@ -603,8 +579,6 @@ begin
       AGen.EmitNode(ANode.GetChild(ANode.ChildCount() - 1));
       AGen.Return(AGen.Get('Result'));
       AGen.EndFunc();
-      if LIsCLinkage then
-        AGen.EmitLine('}');
     end);
 end;
 

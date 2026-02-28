@@ -147,8 +147,8 @@ begin
    //LOptLevel := olReleaseFast;
    //LOptLevel := olReleaseSmall;
 
-    //LPlatform := tpWin64;
-    LPlatform := tpLinux64;
+    LPlatform := tpWin64;
+    //LPlatform := tpLinux64;
 
     //LTest := 'test_program_intrinsics';
     //LTest := 'test_program_exceptions';

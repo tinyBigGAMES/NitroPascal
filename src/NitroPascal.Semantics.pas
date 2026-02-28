@@ -205,26 +205,12 @@ begin
       LName:       string;
       LI:          Integer;
       LIsOverload: Boolean;
-      LIsCLinkage: Boolean;
-      LToken:      TParseToken;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LName := LAttr.AsString;
-      // Check for overload/c_linkage directives
+      // Check for overload directive
       ANode.GetAttr('decl.overload', LAttr);
       LIsOverload := LAttr.IsType<Boolean> and LAttr.AsBoolean;
-      ANode.GetAttr('decl.c_linkage', LAttr);
-      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
-      // Warn: overload + "C" combination -- drop "C", emit W200
-      if LIsOverload and LIsCLinkage then
-      begin
-        TParseASTNode(ANode).SetAttr('decl.c_linkage', TValue.From<Boolean>(False));
-        LToken := ANode.GetToken();
-        ASem.GetErrors().Add(
-          LToken.Filename, LToken.Line, LToken.Column,
-          esWarning, 'W200',
-          '"C" linkage ignored on overloaded routine -- C++ linkage used');
-      end;
       // Declare symbol; suppress duplicate error for overloaded routines
       if not ASem.DeclareSymbol(LName, ANode) then
       begin
@@ -268,26 +254,12 @@ begin
       LResultTok:  TParseToken;
       LI:          Integer;
       LIsOverload: Boolean;
-      LIsCLinkage: Boolean;
-      LToken:      TParseToken;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LName := LAttr.AsString;
-      // Check for overload/c_linkage directives
+      // Check for overload directive
       ANode.GetAttr('decl.overload', LAttr);
       LIsOverload := LAttr.IsType<Boolean> and LAttr.AsBoolean;
-      ANode.GetAttr('decl.c_linkage', LAttr);
-      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
-      // Warn: overload + "C" combination -- drop "C", emit W200
-      if LIsOverload and LIsCLinkage then
-      begin
-        TParseASTNode(ANode).SetAttr('decl.c_linkage', TValue.From<Boolean>(False));
-        LToken := ANode.GetToken();
-        ASem.GetErrors().Add(
-          LToken.Filename, LToken.Line, LToken.Column,
-          esWarning, 'W200',
-          '"C" linkage ignored on overloaded routine -- C++ linkage used');
-      end;
       // Declare symbol; suppress duplicate error for overloaded routines
       if not ASem.DeclareSymbol(LName, ANode) then
       begin

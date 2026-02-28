@@ -723,20 +723,11 @@ begin
         AParser.Expect('delimiter.rparen');
       end;
       AParser.Expect('delimiter.semicolon');
-      // Parse trailing directives: "C" linkage and/or overload
-      while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+      // Parse trailing directives: overload
+      if AParser.Match('keyword.overload') then
       begin
-        if AParser.Check('literal.string') then
-        begin
-          LNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
-          AParser.Consume();
-          AParser.Match('delimiter.semicolon');
-        end
-        else if AParser.Match('keyword.overload') then
-        begin
-          LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
-          AParser.Match('delimiter.semicolon');
-        end;
+        LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+        AParser.Match('delimiter.semicolon');
       end;
       // Optional var/const/type declaration section before body
       while AParser.Check('keyword.var') or
@@ -822,20 +813,11 @@ begin
         TValue.From<string>(AParser.CurrentToken().Text));
       AParser.Consume();  // consume return type keyword
       AParser.Expect('delimiter.semicolon');
-      // Parse trailing directives: "C" linkage and/or overload
-      while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+      // Parse trailing directives: overload
+      if AParser.Match('keyword.overload') then
       begin
-        if AParser.Check('literal.string') then
-        begin
-          LNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
-          AParser.Consume();
-          AParser.Match('delimiter.semicolon');
-        end
-        else if AParser.Match('keyword.overload') then
-        begin
-          LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
-          AParser.Match('delimiter.semicolon');
-        end;
+        LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+        AParser.Match('delimiter.semicolon');
       end;
       // Optional var/const/type declaration section before body
       while AParser.Check('keyword.var') or
@@ -1749,20 +1731,11 @@ begin
             AParser.Expect('delimiter.rparen');
           end;
           AParser.Expect('delimiter.semicolon');
-          // Parse trailing directives: "C" linkage and/or overload
-          while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+          // Parse trailing directives: overload
+          if AParser.Match('keyword.overload') then
           begin
-            if AParser.Check('literal.string') then
-            begin
-              LFwdNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
-              AParser.Consume();
-              AParser.Match('delimiter.semicolon');
-            end
-            else if AParser.Match('keyword.overload') then
-            begin
-              LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
-              AParser.Match('delimiter.semicolon');
-            end;
+            LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+            AParser.Match('delimiter.semicolon');
           end;
           LIntfNode.AddChild(LFwdNode);
         end
@@ -1816,20 +1789,11 @@ begin
             TValue.From<string>(AParser.CurrentToken().Text));
           AParser.Consume();  // consume return type
           AParser.Expect('delimiter.semicolon');
-          // Parse trailing directives: "C" linkage and/or overload
-          while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+          // Parse trailing directives: overload
+          if AParser.Match('keyword.overload') then
           begin
-            if AParser.Check('literal.string') then
-            begin
-              LFwdNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
-              AParser.Consume();
-              AParser.Match('delimiter.semicolon');
-            end
-            else if AParser.Match('keyword.overload') then
-            begin
-              LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
-              AParser.Match('delimiter.semicolon');
-            end;
+            LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+            AParser.Match('delimiter.semicolon');
           end;
           LIntfNode.AddChild(LFwdNode);
         end;
