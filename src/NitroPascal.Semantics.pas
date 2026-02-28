@@ -23,7 +23,8 @@ procedure ConfigSemantics(const AParse: TParse);
 implementation
 
 uses
-  System.Rtti;
+  System.Rtti,
+  Parse.Utils;
 
 // =========================================================================
 // SCOPE & STRUCTURE
@@ -174,18 +175,73 @@ end;
 
 // --- Procedure Declaration ---
 
+// Builds a comma-separated string of param types for a proc/func decl node.
+// Used to detect overloaded routines with identical parameter signatures.
+function BuildParamSig(const ANode: TParseASTNodeBase): string;
+var
+  LAttr:  TValue;
+  LChild: TParseASTNodeBase;
+  LI:     Integer;
+begin
+  Result := '';
+  for LI := 0 to ANode.ChildCount() - 1 do
+  begin
+    LChild := ANode.GetChild(LI);
+    if LChild.GetNodeKind() <> 'stmt.param_decl' then
+      Continue;
+    LChild.GetAttr('param.type_text', LAttr);
+    if Result <> '' then
+      Result := Result + ',';
+    Result := Result + LAttr.AsString;
+  end;
+end;
+
 procedure RegisterProcDecl(const AParse: TParse);
 begin
   AParse.Config().RegisterSemanticRule('stmt.proc_decl',
     procedure(ANode: TParseASTNodeBase; ASem: TParseSemanticBase)
     var
-      LAttr: TValue;
-      LName: string;
-      LI:    Integer;
+      LAttr:       TValue;
+      LName:       string;
+      LI:          Integer;
+      LIsOverload: Boolean;
+      LIsCLinkage: Boolean;
+      LToken:      TParseToken;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LName := LAttr.AsString;
-      ASem.DeclareSymbol(LName, ANode);
+      // Check for overload/c_linkage directives
+      ANode.GetAttr('decl.overload', LAttr);
+      LIsOverload := LAttr.IsType<Boolean> and LAttr.AsBoolean;
+      ANode.GetAttr('decl.c_linkage', LAttr);
+      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
+      // Warn: overload + "C" combination -- drop "C", emit W200
+      if LIsOverload and LIsCLinkage then
+      begin
+        TParseASTNode(ANode).SetAttr('decl.c_linkage', TValue.From<Boolean>(False));
+        LToken := ANode.GetToken();
+        ASem.GetErrors().Add(
+          LToken.Filename, LToken.Line, LToken.Column,
+          esWarning, 'W200',
+          '"C" linkage ignored on overloaded routine -- C++ linkage used');
+      end;
+      // Declare symbol; suppress duplicate error for overloaded routines
+      if not ASem.DeclareSymbol(LName, ANode) then
+      begin
+        if not LIsOverload then
+          ASem.AddSemanticError(ANode, 'S100', 'Duplicate declaration: ' + LName)
+        else
+        begin
+          // Overload is valid only if param types differ from existing declaration
+          var LExistingNode: TParseASTNodeBase;
+          if ASem.LookupSymbol(LName, LExistingNode) then
+          begin
+            if BuildParamSig(ANode) = BuildParamSig(LExistingNode) then
+              ASem.AddSemanticError(ANode, 'S103',
+                'Overloaded routine ''' + LName + ''' must differ in parameter types');
+          end;
+        end;
+      end;
       ASem.PushScope(LName, ANode.GetToken());
       // Visit param children (all but last which is begin_block)
       for LI := 0 to ANode.ChildCount() - 2 do
@@ -211,10 +267,44 @@ begin
       LResultNode: TParseASTNode;
       LResultTok:  TParseToken;
       LI:          Integer;
+      LIsOverload: Boolean;
+      LIsCLinkage: Boolean;
+      LToken:      TParseToken;
     begin
       ANode.GetAttr('decl.name', LAttr);
       LName := LAttr.AsString;
-      ASem.DeclareSymbol(LName, ANode);
+      // Check for overload/c_linkage directives
+      ANode.GetAttr('decl.overload', LAttr);
+      LIsOverload := LAttr.IsType<Boolean> and LAttr.AsBoolean;
+      ANode.GetAttr('decl.c_linkage', LAttr);
+      LIsCLinkage := LAttr.IsType<Boolean> and LAttr.AsBoolean;
+      // Warn: overload + "C" combination -- drop "C", emit W200
+      if LIsOverload and LIsCLinkage then
+      begin
+        TParseASTNode(ANode).SetAttr('decl.c_linkage', TValue.From<Boolean>(False));
+        LToken := ANode.GetToken();
+        ASem.GetErrors().Add(
+          LToken.Filename, LToken.Line, LToken.Column,
+          esWarning, 'W200',
+          '"C" linkage ignored on overloaded routine -- C++ linkage used');
+      end;
+      // Declare symbol; suppress duplicate error for overloaded routines
+      if not ASem.DeclareSymbol(LName, ANode) then
+      begin
+        if not LIsOverload then
+          ASem.AddSemanticError(ANode, 'S100', 'Duplicate declaration: ' + LName)
+        else
+        begin
+          // Overload is valid only if param types differ from existing declaration
+          var LExistingNode: TParseASTNodeBase;
+          if ASem.LookupSymbol(LName, LExistingNode) then
+          begin
+            if BuildParamSig(ANode) = BuildParamSig(LExistingNode) then
+              ASem.AddSemanticError(ANode, 'S103',
+                'Overloaded routine ''' + LName + ''' must differ in parameter types');
+          end;
+        end;
+      end;
       ASem.PushScope(LName, ANode.GetToken());
       // Visit param children
       for LI := 0 to ANode.ChildCount() - 2 do

@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   NitroPascal™ - Modern Pascal * C Performance
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -189,7 +189,8 @@ begin
     .AddKeyword('deletefile',      'keyword.deletefile')
     .AddKeyword('renamefile',      'keyword.renamefile')
     .AddKeyword('getcurrentdir',   'keyword.getcurrentdir')
-    .AddKeyword('createdir',       'keyword.createdir');
+    .AddKeyword('createdir',       'keyword.createdir')
+    .AddKeyword('overload',         'keyword.overload');
 end;
 
 // --- Operators & Delimiters ---

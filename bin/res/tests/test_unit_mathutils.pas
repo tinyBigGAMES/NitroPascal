@@ -13,9 +13,9 @@ unit test_unit_mathutils;
 
 interface
 
-  function Add(const A, B: Integer): Integer;
-  function Multiply(const A, B: Integer): Integer;
-  function IsEven(const AValue: Integer): Boolean;
+function Add(const A, B: Integer): Integer;
+function Multiply(const A, B: Integer): Integer;
+function IsEven(const AValue: Integer): Boolean;
 
 implementation
 

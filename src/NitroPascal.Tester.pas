@@ -1,7 +1,7 @@
 {===============================================================================
-  NitroPascal(tm) - Modern Pascal * C Performance
+  NitroPascal™ - Modern Pascal * C Performance
 
-  Copyright (c) 2025-present tinyBigGAMES(tm) LLC
+  Copyright © 2025-present tinyBigGAMES™ LLC
   All Rights Reserved.
 
   https://nitropascal.org

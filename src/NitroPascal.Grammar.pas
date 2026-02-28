@@ -1,4 +1,4 @@
-{===============================================================================
+﻿{===============================================================================
   NitroPascal™ - Modern Pascal * C Performance
 
   Copyright © 2025-present tinyBigGAMES™ LLC
@@ -522,13 +522,11 @@ begin
         AParser.Expect('delimiter.semicolon');
         LNode.AddChild(LUsesNode);
       end;
-      // Any number of var/const/type blocks in any order
+      // Any number of var/const/type/procedure/function declarations in any order
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
-            AParser.Check('keyword.type') do
-        LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
-      // Zero or more procedure/function declarations
-      while AParser.Check('keyword.procedure') or
+            AParser.Check('keyword.type') or
+            AParser.Check('keyword.procedure') or
             AParser.Check('keyword.function') do
         LNode.AddChild(TParseASTNode(AParser.ParseStatement()));
       // Main begin..end. block
@@ -725,6 +723,21 @@ begin
         AParser.Expect('delimiter.rparen');
       end;
       AParser.Expect('delimiter.semicolon');
+      // Parse trailing directives: "C" linkage and/or overload
+      while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+      begin
+        if AParser.Check('literal.string') then
+        begin
+          LNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
+          AParser.Consume();
+          AParser.Match('delimiter.semicolon');
+        end
+        else if AParser.Match('keyword.overload') then
+        begin
+          LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+          AParser.Match('delimiter.semicolon');
+        end;
+      end;
       // Optional var/const/type declaration section before body
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
@@ -809,6 +822,21 @@ begin
         TValue.From<string>(AParser.CurrentToken().Text));
       AParser.Consume();  // consume return type keyword
       AParser.Expect('delimiter.semicolon');
+      // Parse trailing directives: "C" linkage and/or overload
+      while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+      begin
+        if AParser.Check('literal.string') then
+        begin
+          LNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
+          AParser.Consume();
+          AParser.Match('delimiter.semicolon');
+        end
+        else if AParser.Match('keyword.overload') then
+        begin
+          LNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+          AParser.Match('delimiter.semicolon');
+        end;
+      end;
       // Optional var/const/type declaration section before body
       while AParser.Check('keyword.var') or
             AParser.Check('keyword.const') or
@@ -1721,6 +1749,21 @@ begin
             AParser.Expect('delimiter.rparen');
           end;
           AParser.Expect('delimiter.semicolon');
+          // Parse trailing directives: "C" linkage and/or overload
+          while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+          begin
+            if AParser.Check('literal.string') then
+            begin
+              LFwdNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
+              AParser.Consume();
+              AParser.Match('delimiter.semicolon');
+            end
+            else if AParser.Match('keyword.overload') then
+            begin
+              LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+              AParser.Match('delimiter.semicolon');
+            end;
+          end;
           LIntfNode.AddChild(LFwdNode);
         end
         else  // keyword.function forward
@@ -1773,6 +1816,21 @@ begin
             TValue.From<string>(AParser.CurrentToken().Text));
           AParser.Consume();  // consume return type
           AParser.Expect('delimiter.semicolon');
+          // Parse trailing directives: "C" linkage and/or overload
+          while AParser.Check('literal.string') or AParser.Check('keyword.overload') do
+          begin
+            if AParser.Check('literal.string') then
+            begin
+              LFwdNode.SetAttr('decl.c_linkage', TValue.From<Boolean>(True));
+              AParser.Consume();
+              AParser.Match('delimiter.semicolon');
+            end
+            else if AParser.Match('keyword.overload') then
+            begin
+              LFwdNode.SetAttr('decl.overload', TValue.From<Boolean>(True));
+              AParser.Match('delimiter.semicolon');
+            end;
+          end;
           LIntfNode.AddChild(LFwdNode);
         end;
       end;
